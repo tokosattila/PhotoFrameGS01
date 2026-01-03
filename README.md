@@ -13,11 +13,16 @@
 | **PSRAM** | 4MB |
 | **Battery** | Li-Ion 18650 (optional) |
 
+## 🔄 Operating Modes
+
+| Mode | Description |
+|------|-------------|
+| **Display Mode** | JPEG slideshow from LittleFS with grayscale rendering |
+| **Deep Sleep Mode** | Low-power state with configurable wake intervals (minutes to daily) |
+| **Maintenance Mode** | Button-triggered mode for configuration & remote management |
+
 ## ✨ Features
 
-- **Photo Display** — JPEG slideshow from LittleFS
-- **Deep Sleep** — Configurable wake intervals (minutes to daily)
-- **Maintenance Mode** — Button-triggered for configuration
 - **WiFi Connectivity** — NTP time sync, remote image fetch
 - **FTP Server** — Upload/manage images wirelessly
 - **Telnet Console** — Remote monitoring & commands
