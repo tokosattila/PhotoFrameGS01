@@ -1,0 +1,287 @@
+#ifndef GLOBAL_H
+#define GLOBAL_H
+
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
+#include <esp_partition.h>
+#include <esp_wifi.h>
+#include <esp_bt.h>
+#include <esp_timer.h>
+#include <esp_ota_ops.h>
+#include <esp_chip_info.h>
+#include <esp_adc_cal.h>
+#include <esp_sleep.h>
+#include <esp_heap_caps.h>
+#include <driver/gpio.h>
+#include <driver/adc.h>
+#include <driver/touch_pad.h>
+#include <soc/soc.h>
+#include <soc/rtc_cntl_reg.h>
+#include <nvs_flash.h>
+#include <time.h>
+#include <sys/time.h>
+#include <functional>
+#include <vector>
+#include <algorithm>
+#include <Arduino.h>
+#include <Preferences.h>
+#include <FS.h>
+#include <LittleFS.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include <JPEGDEC.h>
+#include <epd_driver.h>
+#include <i2s_data_bus.h>
+#include <SimpleFTPServer.h>
+#include <WiFiClientSecure.h>
+#include <ArduinoHttpClient.h>
+
+namespace App {
+
+  #define PRODUCTION true
+  
+  #define DEFINE_TAG(tTag) static constexpr const char *TAG = tTag
+
+  #if PRODUCTION
+    #define xLOG_S
+    #define xLOG_B(...)
+    #define xLOG_PR(...)
+    #define xLOG_PL(...)
+    #define xLOG_PR_(...)
+    #define xLOG_PL_(...)
+    #define xLOG_PF(...)
+    #define xLOG(...)
+    #define xLOG_E()
+  #else
+    #define xLOG_S Serial
+    #define xLOG_B(...) Serial.begin(__VA_ARGS__)
+    #define xLOG_PR(...) Serial.print(__VA_ARGS__)
+    #define xLOG_PL(...) Serial.println(__VA_ARGS__)
+    #define xLOG_PR_(...) Serial.print(F(__VA_ARGS__))
+    #define xLOG_PL_(...) Serial.println(F(__VA_ARGS__))
+    #define xLOG_PF(...) Serial.printf(__VA_ARGS__)
+    #define xLOG(...) do { \
+      constexpr const char *tTag = TAG ? TAG : "[APP]"; \
+      char tBuffer[256] = ""; \
+      snprintf(tBuffer, sizeof(tBuffer), __VA_ARGS__); \
+      Serial.printf("[%s] %s\n", tTag, tBuffer); \
+    } while(0)
+    #define xLOG_E() Serial.end()
+  #endif
+
+  using FDefaultCallback = std::function<void()>;
+
+  enum class ECPUFrequency : uint8_t {
+    F80MHz = 80,
+    F160MHz = 160,
+    F240MHz = 240
+  };
+
+  enum class EDevicePins : uint8_t {
+    Btn1 = 39U,
+    Btn2 = 34U,
+    Btn3 = 36U,
+    Btn4 = 0U,
+    BtnBat = 36U
+  };
+
+  enum class ETimerWakeUp : uint8_t {
+    Seconds = 1,
+    Minutes,
+    Hourly,
+    HalfDay,
+    Daily,
+    Weekly,
+    Monthly
+  };
+
+  template<typename T>
+  class AutoGuard {
+    public:
+      AutoGuard() { T::Lock(); }
+      ~AutoGuard() { T::Unlock(); }
+      AutoGuard(const AutoGuard&) = delete;
+      AutoGuard& operator=(const AutoGuard&) = delete;
+  };
+
+  class Percentage {
+    public:
+      constexpr explicit Percentage(uint8_t tValue = 0) : mValue(tValue) {}
+      constexpr uint8_t Get() const { return mValue; }
+      constexpr operator uint8_t() const { return mValue; }
+      bool operator==(const Percentage& tOther) const { return mValue == tOther.mValue; }
+      bool operator!=(const Percentage& tOther) const { return mValue != tOther.mValue; }
+    private:
+      uint8_t mValue;
+  };
+
+  class Port {
+    public:
+      constexpr explicit Port(uint16_t tValue = 0) : mValue(tValue == 0 ? 1 : tValue) {}
+      constexpr uint16_t Get() const { return mValue; }
+      constexpr operator uint16_t() const { return mValue; }
+      bool IsValid() const { return mValue > 0; }
+      bool operator==(const Port& tOther) const { return mValue == tOther.mValue; }
+      bool operator!=(const Port& tOther) const { return mValue != tOther.mValue; }
+    private:
+      uint16_t mValue;
+  };
+
+  struct SDeviceConfig {
+    String Name;
+    String Version;
+    String ConfigFile;
+    uint8_t BatteryPin = 0;
+    uint8_t SettingPin = 0;
+    uint8_t ResetPin = 0;
+    SDeviceConfig() = default;
+  };
+
+  struct SConnectionConfig {
+    bool ApModeEnable = false;
+    String ApSsid;
+    String ApPassword;
+    String ApIp;
+    String ApGateway;
+    String ApSubnet;
+    String StaSsid;
+    String StaPassword;
+    bool StaIpEnable = false;
+    String StaIp;
+    String StaGateway;
+    String StaSubnet;
+    String StaPrimaryDns;
+    String StaSecondaryDns;
+    bool MdnsEnable = false;
+    String MdnsName;
+    SConnectionConfig() = default;
+  };
+
+  struct STimeDateConfig {
+    String Server;
+    Port NtpPort {123};
+    unsigned long GMTOffset = 0;
+    unsigned long UpdateInterval = 0;
+    STimeDateConfig() = default;
+  };
+
+  struct SDisplayConfig {
+    int32_t Width = 0;
+    int32_t Height = 0;
+    Percentage JpgBrightness {35};
+    Percentage JpgContrast {70};
+    Percentage JpgGamma {135};
+    String ImagesDir;
+    String ImageExt;
+    String CurrentFile;
+    SDisplayConfig() = default;
+  };
+
+  struct STimerConfig {
+    ETimerWakeUp WakeUp;
+    EDevicePins WakeUpPin;
+    STimerConfig() = default;
+  };
+
+  struct STelnetConfig{
+    bool Enable = false;
+    Port TelnetPort {23};
+    String Username;
+    String Password;
+    unsigned long Session = 0;
+    STelnetConfig() = default;
+  };
+
+  struct SFTPConfig {
+    bool Enable = false;
+    Port FtpPort {21};
+    String Username;
+    String Password;
+    SFTPConfig() = default;
+  };
+
+  struct SAppConfig {
+    SDeviceConfig Device {};
+    STimeDateConfig TimeDate {};
+    SConnectionConfig Connection {};
+    SDisplayConfig Display {};
+    STimerConfig Timer {};
+    STelnetConfig Telnet {};
+    SFTPConfig Ftp {};
+    SAppConfig() = default;
+  };
+
+  constexpr unsigned long BAUDRATE = 115200;
+
+  constexpr const char *IMAGES_DIR = "images";
+  constexpr const char *CONFIG_FILE = "/config.ini";
+
+  constexpr uint16_t DISPLAY_WIDTH = 960;
+  constexpr uint16_t DISPLAY_HEIGHT = 540;
+  constexpr const char *IMAGE_EXT = ".jpg";
+
+  constexpr uint8_t BATTERY_PIN = static_cast<uint8_t>(EDevicePins::BtnBat);
+  constexpr uint8_t SETTING_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
+  constexpr uint8_t WAKE_UP_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
+  constexpr uint8_t RESET_PIN = static_cast<uint8_t>(EDevicePins::Btn2);
+  
+  constexpr uint32_t SECONDS_PER_MINUTE = 60;
+  constexpr uint32_t SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
+  constexpr uint32_t SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
+
+  constexpr size_t LOOP_TASK_STACK_SIZE = 48 * 1024;
+  constexpr size_t BUTTON_TASK_STACK_SIZE = 8 * 1024;
+  constexpr size_t TELNET_TASK_STACK_SIZE = 8 * 1024;
+  constexpr size_t FTP_TASK_STACK_SIZE = 8 * 1024;
+
+  constexpr uint32_t REBOOT_LONG_PRESS_MS = 3 * 1000;
+  constexpr uint32_t FACTORY_RESET_LONG_PRESS_MS = 30 * 1000;
+
+  constexpr uint32_t DELAY_ULTRA_SHORT_MS = 10;
+  constexpr uint32_t DELAY_SHORT_MS = 100;
+  constexpr uint32_t DELAY_MEDIUM_MS = 200;
+  constexpr uint32_t DELAY_HALF_SEC_MS = 500;
+  constexpr uint32_t DELAY_ONE_SEC_MS = 1000;
+
+  constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 30 * 1000;
+  constexpr uint32_t WIFI_RETRY_COUNT = 20;
+  constexpr uint32_t NVS_RETRY_DELAY_MS = 100;
+  constexpr uint32_t CONFIG_RETRY_DELAY_MS = 1000;
+
+  extern RTC_DATA_ATTR uint32_t gBootCount;
+
+}
+
+#include <App/Utils.h>
+#include <App/Configuration.h>
+#include <App/FileSystem.h>
+#include <App/TimeDate.h>
+#include <App/Connection.h>
+#include <App/Button.h>
+#include <App/Display.h>
+#include <App/FTP.h>
+#include <App/Telnet/Command.h>
+#include <App/Telnet/Commands/CallbackCommand.h>
+#include <App/Telnet.h>
+
+#include <Fonts/OpenSans11.h>
+#include <Fonts/OpenSans11b.h>
+#include <Fonts/OpenSans13.h>
+#include <Fonts/OpenSans13b.h>
+
+#include <Images/DefaultImage.h>
+
+#define CFG Configuration_::Instance()
+#define UTL Utils_::Instance()
+#define LFS FileSystem_::Instance()
+#define TME TimeDate_::Instance()
+#define CON Connection_::Instance()
+#define BTN Button_::Instance()
+#define DSP Display_::Instance()
+#define FTP FTP_::Instance()
+#define TLN Telnet_::Instance()
+
+#endif

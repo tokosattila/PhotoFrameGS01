@@ -1,0 +1,73 @@
+#ifndef FILE_SYSTEM_H
+#define FILE_SYSTEM_H
+
+#include <App/Global.h>
+
+namespace App {
+
+  using FConnectionCallback = FDefaultCallback;
+
+  struct SDirEntry {
+    char Name[128];
+    bool IsDir;
+    size_t Size;
+  };
+
+  class FileSystem_ {
+    DEFINE_TAG("LFS");
+    friend class AutoGuard<FileSystem_>;
+    public:
+      using Guard = AutoGuard<FileSystem_>;
+      static FileSystem_ &Instance();
+      bool Init(bool tVerbose = false);
+      void ReloadConfig();
+      void Callback(FConnectionCallback tCallback);
+      bool IsMounted();
+      File OpenFile(const char *tPath, const char *tMode = FILE_READ, bool tCreate = false);
+      const char *ReadFile(const char *tPath, const char *tMode = FILE_READ);
+      bool WriteFile(const char *tPath, const char *tData, bool tVerbose = false);
+      bool DeleteFile(const char *tPath);
+      bool Exists(const char *tPath);
+      bool CreateDir(const char *tPath, bool tVerbose = false);
+      bool DeleteDir(const char *tPath);
+      static const char *NormalizePath(const char *tPath);
+      static const char *GetFileName(const char *tPath);
+      const char *ListDir(const char *tPath = "/");
+      const char *CatFile(const char *tPath);
+      const char *GetNextFile();
+      const char *GetNextFile(const char *tCurrentFilename, const char *tDir = IMAGES_DIR, const char *tExt = ".jpg");
+      void BootstrapVault(bool tVerbose = false);
+      void PrintListDir();
+      void End();
+      size_t GetListPos() { return mListPos; };
+      uint32_t TotalBytes();
+      uint32_t UsedBytes();
+    private:
+      FileSystem_();
+      FileSystem_(const FileSystem_&) = delete;
+      FileSystem_ &operator=(const FileSystem_&) = delete;
+      ~FileSystem_();
+      mutable SemaphoreHandle_t mMutex = nullptr;
+      FConnectionCallback mCallback = nullptr;
+      SAppConfig mCfg {};
+      const char *mMountLabel = "/lfs";
+      const char *mPartLabel = "littlefs";
+      static const uint8_t mMaxFiles = 10;
+      static char mReadBuffer[4096];
+      static bool mReadValid;
+      static char mListBuffer[4096];
+      static char mFileBuffer[4096];
+      static size_t mListPos;
+      static std::vector<const char*> mFileList;
+      static size_t mFilesCount;
+      static char mFilesLastDir[128];
+      static char mFilesLastExt[16];
+      static void Lock();
+      static void Unlock();
+      static std::vector<const char*> GetFilesInDir(const char *tDir, const char *tExt);
+      void AppendToBuffer(const char *tData, size_t tLength);
+  };
+
+}
+
+#endif
