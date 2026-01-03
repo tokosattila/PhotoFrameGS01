@@ -13,11 +13,11 @@ namespace App {
       bool Execute(const char *tArguments, WiFiClient& tClient) override {
         tClient.print(F(COLOR_WHITE "\r\n"));
         if (!UTL.MeasureBattery()) {
-          tClient.println("  " COLOR_YELLOW "Battery:" COLOR_WHITE " LOW or not detected!");
+          tClient.println("  Battery: LOW or not detected!");
           return false;
         }
-        char tText[64];
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "Battery:" COLOR_WHITE " %.2fV [%d%%]", UTL.mBatteryVoltage, UTL.mBatteryPercentage);
+        char tText[32];
+        snprintf(tText, sizeof(tText), "  Battery: %.2fV [%d%%]", UTL.mBatteryVoltage, UTL.mBatteryPercentage);
         tClient.println(tText);
         tClient.print(F("\r\n"));
         return true;

@@ -20,14 +20,14 @@ namespace App {
         uint32_t tDramUsed = tDramTotal - tDramFree;
         UTL.ByteToReadableSize(tDramUsed, tUsedBuf, sizeof(tUsedBuf));
         UTL.ByteToReadableSize(tDramTotal, tTotalBuf, sizeof(tTotalBuf));
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "DRAM:" COLOR_WHITE " %s / %s", tUsedBuf, tTotalBuf);
+        snprintf(tText, sizeof(tText), "  DRAM: %s / %s", tUsedBuf, tTotalBuf);
         tClient.println(tText);
         uint32_t tIramTotal = heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
         uint32_t tIramFree  = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
         uint32_t tIramUsed  = tIramTotal - tIramFree;
         UTL.ByteToReadableSize(tIramUsed, tUsedBuf, sizeof(tUsedBuf));
         UTL.ByteToReadableSize(tIramTotal, tTotalBuf, sizeof(tTotalBuf));
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "IRAM:" COLOR_WHITE " %s / %s", tUsedBuf, tTotalBuf);
+        snprintf(tText, sizeof(tText), "  IRAM: %s / %s", tUsedBuf, tTotalBuf);
         tClient.println(tText);
         uint32_t tPsramTotal = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
         if (tPsramTotal > 0) {
@@ -35,13 +35,13 @@ namespace App {
           uint32_t tPsramUsed = tPsramTotal - tPsramFree;
           UTL.ByteToReadableSize(tPsramUsed, tUsedBuf, sizeof(tUsedBuf));
           UTL.ByteToReadableSize(tPsramTotal, tTotalBuf, sizeof(tTotalBuf));
-          snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "PSRAM:" COLOR_WHITE " %s / %s", tUsedBuf, tTotalBuf);
+          snprintf(tText, sizeof(tText), "  PSRAM: %s / %s", tUsedBuf, tTotalBuf);
           tClient.println(tText);
         }
         uint32_t tFreeHeap = ESP.getFreeHeap();
         uint32_t tLargest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
         UTL.ByteToReadableSize(tFreeHeap, tUsedBuf, sizeof(tUsedBuf));
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "FREE HEAP:" COLOR_WHITE " %s", tUsedBuf);
+        snprintf(tText, sizeof(tText), "  FREE HEAP: %s", tUsedBuf);
         tClient.println(tText);
         tClient.print(F("\r\n"));
         return true;

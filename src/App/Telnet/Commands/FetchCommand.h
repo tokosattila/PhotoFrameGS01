@@ -19,8 +19,8 @@ namespace App {
         bool tIsHttps;
         if (!ParseUrl(tUrl, tHost, tPath, tPort, tIsHttps, tClient)) return true;
         if (!BuildFilePath(tFilename, sizeof(tFilename), tClient)) return true;
-        tClient.printf(COLOR_YELLOW "\r\n  Downloading: %s:%d%s -> %s\r\n" COLOR_WHITE, tHost.c_str(), tPort, tPath.c_str(), tFilename);
-        int tBytesWritten = tIsHttps ? DownloadHttps(tHost, tPath, tPort, tFilename, tClient) : DownloadHttp(tHost, tPath, tPort, tFilename, tClient);
+        tClient.printf("\r\n  Downloading: %s:%d%s → %s\r\n", tHost.c_str(), tPort, tPath.c_str(), tFilename);
+        int tBytesWritten = tIsHttps  ? DownloadHttps(tHost, tPath, tPort, tFilename, tClient) : DownloadHttp(tHost, tPath, tPort, tFilename, tClient);
         return HandleResult(tBytesWritten, tFilename, tClient);
       }     
       const char *Help() const override {
@@ -94,7 +94,7 @@ namespace App {
           tPort = kHttpPort;
           tIsHttps = false;
         } else {
-          PrintError(tClient, "URL must start with -> http:// or https://");
+          PrintError(tClient, "URL must start with → http:// or https://");
           return false;
         }
         const char *tPathStart = strchr(tHostStart, '/');
@@ -128,7 +128,7 @@ namespace App {
         }
         const char *tExt = strrchr(tFilename, '.');
         if (!tExt || (strcasecmp(tExt, ".jpg") != 0 && strcasecmp(tExt, ".jpeg") != 0)) {
-          PrintError(tClient, "Only -> .jpg/.jpeg files allowed");
+          PrintError(tClient, "Only → .jpg/.jpeg files allowed");
           return false;
         }
         return true;
@@ -140,12 +140,12 @@ namespace App {
         tHttp.get(tPath);
         int tStatusCode = tHttp.responseStatusCode();
         if (tStatusCode != 200) {
-          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n\r\n" COLOR_WHITE, tStatusCode);
+          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n" COLOR_WHITE, tStatusCode);
           return -1;
         }
         int tContentLength = tHttp.contentLength();
         if (tContentLength > kMaxFileSizeBytes) {
-          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n\r\n" COLOR_WHITE, tContentLength);
+          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n" COLOR_WHITE, tContentLength);
           return -1;
         }
         File tFile = LFS.OpenFile(tFilename, "w");
@@ -195,7 +195,7 @@ namespace App {
         int tIdx = tStatusLine.indexOf(' ');
         int tStatusCode = (tIdx > 0) ? tStatusLine.substring(tIdx + 1, tIdx + 4).toInt() : 0;
         if (tStatusCode != 200) {
-          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n\r\n" COLOR_WHITE, tStatusCode);
+          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n" COLOR_WHITE, tStatusCode);
           tSecure.stop();
           return -1;
         }
@@ -207,7 +207,7 @@ namespace App {
           if (tHeader.startsWith("Content-Length:")) tContentLength = tHeader.substring(15).toInt();
         }
         if (tContentLength > kMaxFileSizeBytes) {
-          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n\r\n" COLOR_WHITE, tContentLength);
+          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n" COLOR_WHITE, tContentLength);
           tSecure.stop();
           return -1;
         }
@@ -243,7 +243,7 @@ namespace App {
         }
         if (tBytes > kMaxFileSizeBytes) {
           LFS.DeleteFile(tFilename);
-          tClient.printf(COLOR_RED "\r\n  Error: File exceeded %dkB limit\r\n\r\n" COLOR_WHITE, kMaxFileSizeKB);
+          tClient.printf(COLOR_RED "\r\n  Error: File exceeded %dkB limit\r\n" COLOR_WHITE, kMaxFileSizeKB);
           return true;
         }
         char tSizeBuf[16];

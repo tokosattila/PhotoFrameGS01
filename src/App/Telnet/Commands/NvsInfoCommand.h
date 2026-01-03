@@ -32,9 +32,9 @@ namespace App {
         mCFG.end();
         tClient.print(F(COLOR_WHITE "\r\n"));
         char tBuf[128] = "";
-        snprintf(tBuf, sizeof(tBuf), "  " COLOR_YELLOW "Config entries:" COLOR_WHITE " %u / %u", tUsedInCfg, tStats.total_entries);
+        snprintf(tBuf, sizeof(tBuf), "  Config entries: %u / %u", tUsedInCfg, tStats.total_entries);
         tClient.println(tBuf);
-        snprintf(tBuf, sizeof(tBuf), "  " COLOR_YELLOW "All entries:" COLOR_WHITE " %u / %u", tStats.used_entries, tStats.total_entries);
+        snprintf(tBuf, sizeof(tBuf), "  All entries: %u / %u", tStats.used_entries, tStats.total_entries);
         tClient.println(tBuf);
         uint32_t tUsedBytes = tUsedInCfg * 32;
         uint32_t tTotalBytes = tStats.total_entries * 32;
@@ -42,7 +42,7 @@ namespace App {
         char tTotalBytesBuffer[16] = "";
         UTL.ByteToReadableSize(tUsedBytes, tUsedBytesBuffer, sizeof(tUsedBytesBuffer));
         UTL.ByteToReadableSize(tTotalBytes, tTotalBytesBuffer, sizeof(tTotalBytesBuffer));
-        snprintf(tBuf, sizeof(tBuf), "  " COLOR_YELLOW "Nvs usage:" COLOR_WHITE " ~%s / ~%s", tUsedBytesBuffer, tTotalBytesBuffer);
+        snprintf(tBuf, sizeof(tBuf), "  Nvs usage: ~%s / ~%s", tUsedBytesBuffer, tTotalBytesBuffer);
         tClient.println(tBuf);
         tClient.print(F("\r\n"));
         return true;

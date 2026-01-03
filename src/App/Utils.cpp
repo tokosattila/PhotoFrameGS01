@@ -39,7 +39,7 @@ namespace App {
   }
 
   uint32_t Utils_::SafeAtoul(const char *tStr, uint32_t tMinVal, uint32_t tMaxVal, uint32_t tDefaultVal) {
-    if (!tStr || *tStr == '\0' || *tStr == ' ' || *tStr == '\t') return tDefaultVal;
+    if (!tStr || *tStr == '\0') return tDefaultVal;
     char *tEndPtr = nullptr;
     errno = 0;
     unsigned long tVal = strtoul(tStr, &tEndPtr, 10);

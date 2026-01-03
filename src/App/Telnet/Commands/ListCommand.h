@@ -15,7 +15,7 @@ namespace App {
         size_t tLen = LFS.GetListPos();
         char *tLine = (char*)tData;
         char *tEnd = (char*)tData + tLen;
-        tClient.print(F(COLOR_GREEN "\r\n  File structure:\r\n\r\n" COLOR_WHITE));
+        tClient.print(F(COLOR_YELLOW "\r\n  File structure:\r\n\r\n" COLOR_WHITE));
         while (tLine < tEnd) {
           char *tNext = tLine;
           while (tNext < tEnd && *tNext != '\r' && *tNext != '\n') ++tNext;

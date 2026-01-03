@@ -14,7 +14,7 @@ namespace App {
         TME.Init();
         TME.SyncSystemTime();
         char tTimeStamp[16];
-        tClient.print(F("\r\n  " COLOR_YELLOW "Timestamp:" COLOR_WHITE " "));
+        tClient.print(F("\r\n  Timestamp: "));
         tClient.print(TME.GetCurrentEpoch());
         tClient.print(F("\r\n\r\n"));
         TME.End();

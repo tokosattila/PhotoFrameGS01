@@ -75,19 +75,16 @@ namespace App {
         while (tLinePtr < tEndPtr) {
           const char *tLineEnd = tLinePtr;
           while (tLineEnd < tEndPtr && *tLineEnd != '\r' && *tLineEnd != '\n') ++tLineEnd;
-          char tFmt[16];
+          char tFmt[8];
           tClient.write(COLOR_YELLOW);
-          snprintf(tFmt, sizeof(tFmt), "  %%%uu  ", tWidth);
+          snprintf(tFmt, sizeof(tFmt), "%%%uu  ", tWidth);
           tClient.printf(tFmt, tLineNum++);
-          bool tIsSection = (tLinePtr < tLineEnd && *tLinePtr == '[');
-          if (tIsSection) tClient.write(COLOR_YELLOW);
-          else tClient.write(COLOR_WHITE);
+          tClient.write(COLOR_WHITE);
           while (tLinePtr < tLineEnd) tClient.write(*tLinePtr++);
-          if (tIsSection) tClient.write(COLOR_WHITE);
           tClient.print(F("\r\n"));
           tPrintedLines++;
           if (tPrintedLines >= PAGE_LINES) {
-            tClient.print(F("\r\n" COLOR_GREEN "  --- Press ENTER to continue ---" COLOR_WHITE));
+            tClient.print(F("\r\n" COLOR_GREEN "--- Press ENTER to continue ---" COLOR_WHITE));
             while (!tClient.available()) vTaskDelay(pdMS_TO_TICKS(5));
             while (tClient.available()) tClient.read();
             tPrintedLines = 0;

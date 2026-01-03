@@ -19,7 +19,7 @@ namespace App {
         UTL.ByteToReadableSize(tSketchSize, tSketchSizeBuffer, sizeof(tSketchSizeBuffer));
         UTL.ByteToReadableSize(tRunning->size, tSketchTotalSizeBuffer, sizeof(tSketchTotalSizeBuffer));
         tClient.print(F(COLOR_WHITE "\r\n"));
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "Sketch:" COLOR_WHITE " %s / %s", tSketchSizeBuffer, tSketchTotalSizeBuffer);
+        snprintf(tText, sizeof(tText), "  Sketch: %s / %s", tSketchSizeBuffer, tSketchTotalSizeBuffer);
         tClient.println(tText);
         tClient.print(F("\r\n"));
         return true;

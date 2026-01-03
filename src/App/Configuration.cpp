@@ -272,8 +272,8 @@ namespace App {
     AccessConfig(true, [&]() {
       tCfg.Width = DISPLAY_WIDTH;
       tCfg.Height = DISPLAY_HEIGHT;
-      tCfg.JpgBrightness = Percentage(mConfig.getUChar(kNvsDisplayBrightness, 35));
-      tCfg.JpgContrast = Percentage(mConfig.getUChar(kNvsDisplayContrast, 70));
+      tCfg.JpgBrightness = Percentage(mConfig.getUChar(kNvsDisplayBrightness, 30));
+      tCfg.JpgContrast = Percentage(mConfig.getUChar(kNvsDisplayContrast, 35));
       tCfg.JpgGamma = Percentage(mConfig.getUChar(kNvsDisplayGamma, 135));
       tCfg.ImagesDir = IMAGES_DIR;
       tCfg.ImageExt = IMAGE_EXT;
@@ -469,20 +469,20 @@ namespace App {
         AccessConfig(false, [&]() {
           switch (tEntry.Type) {
             case EConfigType::BOOL:
-              tSuccess = mConfig.putBool(tEntry.NvsKey, (strcasecmp(tValue, "true") == 0 || UTL.SafeAtoul(tValue, 0, 1, 0) != 0));
+              tSuccess = mConfig.putBool(tEntry.NvsKey, (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0));
               break;
             case EConfigType::UCHAR:
-              tSuccess = mConfig.putUChar(tEntry.NvsKey, static_cast<uint8_t>(UTL.SafeAtoul(tValue, 0, 255, 0)));
+              tSuccess = mConfig.putUChar(tEntry.NvsKey, static_cast<uint8_t>(atoi(tValue)));
               break;
             case EConfigType::USHORT:
-              tSuccess = mConfig.putUShort(tEntry.NvsKey, static_cast<uint16_t>(UTL.SafeAtoul(tValue, 0, 65535, 0)));
+              tSuccess = mConfig.putUShort(tEntry.NvsKey, static_cast<uint16_t>(atoi(tValue)));
               break;
             case EConfigType::INT:
-              tSuccess = mConfig.putInt(tEntry.NvsKey, static_cast<int32_t>(UTL.SafeAtoul(tValue, 0, 2147483647, 0)));
+              tSuccess = mConfig.putInt(tEntry.NvsKey, static_cast<int32_t>(atol(tValue)));
               break;
             case EConfigType::UINT:
             case EConfigType::ULONG:
-              tSuccess = mConfig.putULong(tEntry.NvsKey, UTL.SafeAtoul(tValue, 0, 4294967295, 0));
+              tSuccess = mConfig.putULong(tEntry.NvsKey, static_cast<uint32_t>(atol(tValue)));
               break;
             case EConfigType::STRING:
               tSuccess = mConfig.putString(tEntry.NvsKey, tValue);
@@ -538,17 +538,17 @@ namespace App {
       if (strcmp(tEntry.NvsKey, kNvsDeviceAppName) == 0) tConfig.Device.Name = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsDeviceVersion) == 0) tConfig.Device.Version = String(tValue);
     } else if (strcasecmp(tSection, "display") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsDisplayBrightness) == 0) tConfig.Display.JpgBrightness = Percentage(static_cast<uint8_t>(UTL.SafeAtoul(tValue, 0, 255, 35)));
-      else if (strcmp(tEntry.NvsKey, kNvsDisplayContrast) == 0) tConfig.Display.JpgContrast = Percentage(static_cast<uint8_t>(UTL.SafeAtoul(tValue, 0, 255, 70)));
-      else if (strcmp(tEntry.NvsKey, kNvsDisplayGamma) == 0) tConfig.Display.JpgGamma = Percentage(static_cast<uint8_t>(UTL.SafeAtoul(tValue, 0, 255, 135)));
+      if (strcmp(tEntry.NvsKey, kNvsDisplayBrightness) == 0) tConfig.Display.JpgBrightness = Percentage(static_cast<uint8_t>(atoi(tValue)));
+      else if (strcmp(tEntry.NvsKey, kNvsDisplayContrast) == 0) tConfig.Display.JpgContrast = Percentage(static_cast<uint8_t>(atoi(tValue)));
+      else if (strcmp(tEntry.NvsKey, kNvsDisplayGamma) == 0) tConfig.Display.JpgGamma = Percentage(static_cast<uint8_t>(atoi(tValue)));
       else if (strcmp(tEntry.NvsKey, kNvsDisplayFile) == 0) tConfig.Display.CurrentFile = String(tValue);
     } else if (strcasecmp(tSection, "ntp") == 0) {
       if (strcmp(tEntry.NvsKey, kNvsTimeServer) == 0) tConfig.TimeDate.Server = String(tValue);
-      else if (strcmp(tEntry.NvsKey, kNvsTimePort) == 0) tConfig.TimeDate.NtpPort = Port(static_cast<uint16_t>(UTL.SafeAtoul(tValue, 1, 65535, 123)));
-      else if (strcmp(tEntry.NvsKey, kNvsTimeGmtOffset) == 0) tConfig.TimeDate.GMTOffset = static_cast<int32_t>(UTL.SafeAtoul(tValue, 0, 50400, 7200));
+      else if (strcmp(tEntry.NvsKey, kNvsTimePort) == 0) tConfig.TimeDate.NtpPort = Port(static_cast<uint16_t>(atoi(tValue)));
+      else if (strcmp(tEntry.NvsKey, kNvsTimeGmtOffset) == 0) tConfig.TimeDate.GMTOffset = atol(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsTimeUpdate) == 0) tConfig.TimeDate.UpdateInterval = UTL.SafeAtoul(tValue, 60, 86400000, 3600);
     } else if (strcasecmp(tSection, "ap mode") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsConApEnable) == 0) tConfig.Connection.ApModeEnable = (strcasecmp(tValue, "true") == 0 || UTL.SafeAtoul(tValue, 0, 1, 0) != 0);
+      if (strcmp(tEntry.NvsKey, kNvsConApEnable) == 0) tConfig.Connection.ApModeEnable = (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0);
       else if (strcmp(tEntry.NvsKey, kNvsConApSsid) == 0) tConfig.Connection.ApSsid = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConApPass) == 0) tConfig.Connection.ApPassword = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConApIp) == 0) tConfig.Connection.ApIp = String(tValue);
@@ -558,25 +558,25 @@ namespace App {
       if (strcmp(tEntry.NvsKey, kNvsConStaSsid) == 0) tConfig.Connection.StaSsid = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConStaPass) == 0) tConfig.Connection.StaPassword = String(tValue);
     } else if (strcasecmp(tSection, "static ip") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsConStaEnable) == 0) tConfig.Connection.StaIpEnable = (strcasecmp(tValue, "true") == 0 || UTL.SafeAtoul(tValue, 0, 1, 0) != 0);
+      if (strcmp(tEntry.NvsKey, kNvsConStaEnable) == 0) tConfig.Connection.StaIpEnable = (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0);
       else if (strcmp(tEntry.NvsKey, kNvsConStaIp) == 0) tConfig.Connection.StaIp = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConStaGw) == 0) tConfig.Connection.StaGateway = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConStaSubnet) == 0) tConfig.Connection.StaSubnet = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConStaDns1) == 0) tConfig.Connection.StaPrimaryDns = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsConStaDns2) == 0) tConfig.Connection.StaSecondaryDns = String(tValue);
     } else if (strcasecmp(tSection, "mdns") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsConMdnsEnable) == 0) tConfig.Connection.MdnsEnable = (strcasecmp(tValue, "true") == 0 || UTL.SafeAtoul(tValue, 0, 1, 0) != 0);
+      if (strcmp(tEntry.NvsKey, kNvsConMdnsEnable) == 0) tConfig.Connection.MdnsEnable = (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0);
       else if (strcmp(tEntry.NvsKey, kNvsConMdnsName) == 0) tConfig.Connection.MdnsName = String(tValue);
     } else if (strcasecmp(tSection, "timer") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsTimerWake) == 0) tConfig.Timer.WakeUp = static_cast<ETimerWakeUp>(UTL.SafeAtoul(tValue, 1, 7, 5));
+      if (strcmp(tEntry.NvsKey, kNvsTimerWake) == 0) tConfig.Timer.WakeUp = static_cast<ETimerWakeUp>(atoi(tValue));
     } else if (strcasecmp(tSection, "telnet") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsTelnetEnable) == 0) tConfig.Telnet.Enable = (strcasecmp(tValue, "true") == 0 || UTL.SafeAtoul(tValue, 0, 1, 1) != 0);
-      else if (strcmp(tEntry.NvsKey, kNvsTelnetPort) == 0) tConfig.Telnet.TelnetPort = Port(static_cast<uint16_t>(UTL.SafeAtoul(tValue, 1, 65535, 23)));
+      if (strcmp(tEntry.NvsKey, kNvsTelnetEnable) == 0) tConfig.Telnet.Enable = (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0);
+      else if (strcmp(tEntry.NvsKey, kNvsTelnetPort) == 0) tConfig.Telnet.TelnetPort = Port(static_cast<uint8_t>(atoi(tValue)));
       else if (strcmp(tEntry.NvsKey, kNvsTelnetUsername) == 0) tConfig.Telnet.Username = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsTelnetPassword) == 0) tConfig.Telnet.Password = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsTelnetSession) == 0) tConfig.Telnet.Session = UTL.SafeAtoul(tValue, 60, 86400000, 3600000);
     } else if (strcasecmp(tSection, "ftp") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsFtpPort) == 0) tConfig.Ftp.FtpPort = Port(static_cast<uint16_t>(UTL.SafeAtoul(tValue, 1, 65535, 21)));
+      if (strcmp(tEntry.NvsKey, kNvsFtpPort) == 0) tConfig.Ftp.FtpPort = Port(static_cast<uint8_t>(atoi(tValue)));
       else if (strcmp(tEntry.NvsKey, kNvsFtpUsername) == 0) tConfig.Ftp.Username = String(tValue);
       else if (strcmp(tEntry.NvsKey, kNvsFtpPassword) == 0) tConfig.Ftp.Password = String(tValue);
     }

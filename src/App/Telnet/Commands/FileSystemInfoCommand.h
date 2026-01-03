@@ -17,7 +17,7 @@ namespace App {
         tClient.print(F(COLOR_WHITE "\r\n"));
         UTL.ByteToReadableSize(LFS.UsedBytes(), tUsedBuffer, sizeof(tUsedBuffer));
         UTL.ByteToReadableSize(LFS.TotalBytes(), tTotalBuffer, sizeof(tTotalBuffer));
-        snprintf(tText, sizeof(tText), "  " COLOR_YELLOW "LittleFS:" COLOR_WHITE " %s / %s", tUsedBuffer, tTotalBuffer);
+        snprintf(tText, sizeof(tText), "  LittleFS: %s / %s", tUsedBuffer, tTotalBuffer);
         tClient.println(tText);
         tClient.print(F("\r\n"));
         return true;

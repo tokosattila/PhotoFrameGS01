@@ -39,7 +39,7 @@ namespace App {
         if (*tPtr == '\0') {
           const char *tVal = CFG.GetConfig(tKey);
           if (!tVal || tVal[0] == '\0') tClient.print(F(COLOR_RED "\r\n  Error: Key not found\r\n\r\n" COLOR_WHITE));
-          else tClient.printf("\r\n  " COLOR_YELLOW "%s" COLOR_WHITE " = %s\r\n\r\n" COLOR_WHITE, tKey, tVal);
+          else tClient.printf("\r\n  %s = %s\r\n\r\n" COLOR_WHITE, tKey, tVal);
           return true;
         }
         const char *tValueStart = tPtr;

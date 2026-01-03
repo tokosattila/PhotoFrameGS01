@@ -17,9 +17,9 @@ namespace App {
         char tTime[16];
         TME.GetDate(tDate, sizeof(tDate));
         TME.GetTime(tTime, sizeof(tTime));
-        tClient.print(F("\r\n  " COLOR_YELLOW "Date:" COLOR_WHITE " "));
+        tClient.print(F("\r\n  Date: "));
         tClient.print(tDate);
-        tClient.print(F("\r\n  " COLOR_YELLOW "Time:" COLOR_WHITE " "));
+        tClient.print(F("\r\n  Time: "));
         tClient.print(tTime);
         tClient.print(F("\r\n\r\n"));
         TME.End();
