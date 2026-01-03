@@ -92,16 +92,24 @@ telnet_port = 23
 
 | Command | Description |
 |---------|-------------|
-| `help` | List available commands |
-| `meminfo` | Memory statistics |
-| `fsinfo` | Filesystem usage |
-| `netinfo` | Network status |
-| `batinfo` | Battery level |
-| `ls [path]` | List directory |
-| `cat <file>` | Display file content |
-| `fetch <url>` | Download image from URL |
-| `config` | Show configuration |
+| `help` | Help information |
+| `clear` | Clear display |
+| `list` | List directories and files |
+| `cat <filename>` | Show file content |
+| `date` | Show current date and time |
+| `timestamp` | Show current timestamp |
+| `nvsinfo` | Show NVS usage info |
+| `meminfo` | Show memory usage info |
+| `sketchinfo` | Show sketch usage info |
+| `fsinfo` | Show filesystem usage info |
+| `netinfo` | Show network info |
+| `batinfo` | Show battery voltage and percentage |
+| `config <key> [value]` | Get or set config value |
+| `fetch <url> [filename]` | Download image (max. 200kB, type: *.jpg, *.jpeg) |
+| `reset config` | Factory reset config |
 | `reboot` | Restart device |
+| `logout` | Logout telnet session |
+| `exit` | Exit telnet |
 
 ## 🔌 Pin Configuration
 
