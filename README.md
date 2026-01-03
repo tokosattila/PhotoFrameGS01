@@ -28,19 +28,56 @@
 
 ```
 src/
-├── Main.cpp              # Application entry point
+├── Main.cpp                    # Application entry point
 ├── App/
-│   ├── Button.cpp/h      # Debounced button handling
-│   ├── Configuration.cpp/h # INI config management
-│   ├── Connection.cpp/h  # WiFi management
-│   ├── Display.cpp/h     # E-Paper driver wrapper
-│   ├── FileSystem.cpp/h  # LittleFS operations
-│   ├── FTP.cpp/h         # FTP server
-│   ├── Telnet.cpp/h      # Telnet console
-│   ├── TimeDate.cpp/h    # NTP & RTC
-│   └── Utils.cpp/h       # System utilities
-├── Fonts/                # OpenSans bitmap fonts
-└── Images/               # Default fallback image
+│   ├── Button.cpp/h            # Debounced button handling
+│   ├── Configuration.cpp/h     # INI config management
+│   ├── Connection.cpp/h        # WiFi management
+│   ├── Display.cpp/h           # E-Paper driver wrapper
+│   ├── FileSystem.cpp/h        # LittleFS operations
+│   ├── FTP.cpp/h               # FTP server
+│   ├── Global.h                # Global definitions & macros
+│   ├── Telnet.cpp/h            # Telnet console
+│   ├── Telnet/
+│   │   ├── Command.h           # Base command interface
+│   │   └── Commands/           # Telnet command implementations
+│   │       ├── BatInfoCommand.h
+│   │       ├── CatCommand.h
+│   │       ├── ClearCommand.h
+│   │       ├── ConfigCommand.h
+│   │       ├── DateCommand.h
+│   │       ├── ExitCommand.h
+│   │       ├── FetchCommand.h
+│   │       ├── FileSystemInfoCommand.h
+│   │       ├── HelpCommand.h
+│   │       ├── ListCommand.h
+│   │       ├── LogoutCommand.h
+│   │       ├── MemInfoCommand.h
+│   │       ├── NetInfoCommand.h
+│   │       ├── NvsInfoCommand.h
+│   │       ├── RebootCommand.h
+│   │       ├── ResetCommand.h
+│   │       ├── SketchInfoCommand.h
+│   │       └── TimeStampCommand.h
+│   ├── TimeDate.cpp/h          # NTP & RTC
+│   └── Utils.cpp/h             # System utilities
+├── Fonts/                      # OpenSans bitmap fonts (6-26pt)
+│   └── opensans*.h             # 26 font variants
+└── Images/
+    └── DefaultImage.h          # Default fallback image
+
+test/
+├── mocks/                      # Mock classes for testing
+│   ├── MockString.h
+│   └── MockWiFiClient.h
+├── test_Button/                # Button unit tests
+├── test_Configuration/         # Configuration parser tests
+├── test_FetchCommand/          # Fetch command tests
+├── test_FileSystem/            # FileSystem utility tests
+├── test_Telnet/                # Telnet command tests
+├── test_TimeDate/              # Date/time utility tests
+├── test_Utils/                 # Utility function tests
+└── test_Wrappers/              # Type wrapper tests
 ```
 
 ## 🛠️ Build
