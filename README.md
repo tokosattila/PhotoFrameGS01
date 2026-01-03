@@ -126,5 +126,5 @@ MIT
 
 ---
 
-**Author:** tokosattila  
+**Author:** Szeklerman  
 **Hardware:** LilyGo T5 4.7" E-Paper / ESP32-WROVER-E
