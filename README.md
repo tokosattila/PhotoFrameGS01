@@ -114,20 +114,62 @@ pio device monitor
 Place `config.ini` in LittleFS root:
 
 ```ini
-[wifi]
-ssid = YourNetwork
-password = YourPassword
+[device]
+appname = PHOTO FRAME GS01
+version = v1.0
 
 [display]
-interval = 60        ; minutes between image changes
-brightness = 100     ; 0-100%
+jpg_brightness = 30      ; 0-100%
+jpg_contrast = 35        ; 0-100%
+jpg_gamma = 135          ; gamma correction
+image_file =             ; current image file
+images_dir = /images     ; images directory
 
-[services]
-ftp_enabled = true
-ftp_user = admin
-ftp_pass = admin
-telnet_enabled = true
+[ntp]
+ntp_server = pool.ntp.org
+ntp_port = 123
+ntp_gmt_offset = 7200    ; GMT+2 in seconds
+ntp_update = 60000       ; update interval ms
+
+[ap mode]
+ap_enable = true
+ap_ssid = PhotoFrameGS01
+ap_password = 123456789
+ap_ip = 192.168.4.1
+ap_gateway = 192.168.4.1
+ap_subnet = 255.255.255.0
+
+[sta mode]
+sta_ssid = YourNetwork
+sta_password = YourPassword
+
+[static ip]
+sta_enable = false
+sta_ip = 192.168.0.83
+sta_gateway = 192.168.0.1
+sta_subnet = 255.255.255.0
+sta_dns1 = 192.168.0.1
+sta_dns2 = 8.8.8.8
+
+[mdns]
+mdns_enable = false
+mdns_hostname = photoframegs01
+
+[timer]
+wake_up = 4              ; 0=Off, 1=1min, 2=5min, 3=30min, 4=Daily; 5=Weekly; 6=Nonthly
+
+[telnet]
+telnet_enable = true
 telnet_port = 23
+telnet_username = admin
+telnet_password = 123456789
+telnet_session = 3600000 ; session timeout ms
+
+[ftp]
+ftp_enable = true
+ftp_port = 21
+ftp_username = admin
+ftp_password = 123456789
 ```
 
 ## 📡 Telnet Commands
