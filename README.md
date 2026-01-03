@@ -1,6 +1,6 @@
 # PhotoFrameGS01
 
-> E-Paper Digital Photo Frame with Deep Sleep & Remote Management
+> E-ink digital picture frame with remote image updates via FTP and configuration settings adjustable through Telnet. Features deep sleep mode for extended battery life.
 
 ## 🔧 Hardware
 
