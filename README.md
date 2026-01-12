@@ -7,13 +7,13 @@ E-ink digital picture frame with remote image updates via FTP and configuration 
 <table align="center">
   <tr>
     <td align="center">
-      <img src="docs/images/pic01.jpg" width="100%" alt="Photo Frame Display" />
+      <img src="docs/images/pic01.jpg" width="240px" alt="Photo Frame Display" />
     </td>
     <td align="center">
-      <img src="docs/images/pic02.jpg" width="100%" alt="Photo Frame Hardware" />      
+      <img src="docs/images/pic02.jpg" width="240px" alt="Photo Frame Hardware" />      
     </td>
     <td align="center">
-      <img src="docs/images/pic03.jpg" width="100%" alt="Photo Frame Back Side" />
+      <img src="docs/images/pic03.jpg" width="240px" alt="Photo Frame Back Side" />
     </td>
   </tr>
   <tr>
