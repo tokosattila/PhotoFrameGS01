@@ -73,6 +73,7 @@ namespace App {
   #endif
 
   using FDefaultCallback = std::function<void()>;
+  using FConnectionCallback = FDefaultCallback;
 
   enum class ECPUFrequency : uint8_t {
     F80MHz = 80,

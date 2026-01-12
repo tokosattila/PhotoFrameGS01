@@ -40,7 +40,7 @@ src/
 │   ├── Configuration.cpp/h     # INI config management
 │   ├── Connection.cpp/h        # WiFi management
 │   ├── Display.cpp/h           # E-Paper driver wrapper
-│   ├── FileSystem.cpp/h        # LittleFS operations
+│   ├── LittleFs.cpp/h          # LittleFS operations
 │   ├── FTP.cpp/h               # FTP server
 │   ├── Global.h                # Global definitions & macros
 │   ├── Telnet.cpp/h            # Telnet console
@@ -65,7 +65,7 @@ src/
 │   │       ├── ResetCommand.h
 │   │       ├── SketchInfoCommand.h
 │   │       └── TimeStampCommand.h
-│   ├── TimeDate.cpp/h          # NTP & RTC
+│   ├── NTP.cpp/h               # NTP time synchronization
 │   └── Utils.cpp/h             # System utilities
 ├── Fonts/                      # OpenSans bitmap fonts (6-26pt)
 │   └── opensans*.h             # 26 font variants
@@ -79,9 +79,9 @@ test/
 ├── test_Button/                # Button unit tests
 ├── test_Configuration/         # Configuration parser tests
 ├── test_FetchCommand/          # Fetch command tests
-├── test_FileSystem/            # FileSystem utility tests
+├── test_LittleFs/              # LittleFS utility tests
 ├── test_Telnet/                # Telnet command tests
-├── test_TimeDate/              # Date/time utility tests
+├── test_NTP/                   # NTP time utility tests
 ├── test_Utils/                 # Utility function tests
 └── test_Wrappers/              # Type wrapper tests
 ```

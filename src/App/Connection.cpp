@@ -97,6 +97,13 @@ namespace App {
     return tActive;
   }
 
+  bool Connection_::IsApMode() const {
+    Guard tLock;
+    if (!mWiFi) return false;
+    wifi_mode_t tMode = mWiFi->getMode();
+    return (tMode == WIFI_AP) || (tMode == WIFI_AP_STA && mWiFi->status() != WL_CONNECTED);
+  }
+
   void Connection_::Callback(FConnectionCallback tCallback) {
     Guard tLock;
     mCallback = tCallback;
@@ -244,10 +251,14 @@ namespace App {
 
   void Connection_::BootstrapVault() {
     Guard tLock;
-    TME.Init();
-    TME.SyncSystemTime();
-    TME.PrintDateTimeInfo();
-    TME.End();
+    if (!mCfg.Connection.ApModeEnable) {
+      TME.Init();
+      TME.SyncSystemTime();
+      TME.PrintDateTimeInfo();
+      TME.End();
+    } else {
+      xLOG("NTP synchronization skipped → AP mode active");
+    }
   }
 
 }

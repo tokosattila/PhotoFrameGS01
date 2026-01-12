@@ -30,7 +30,7 @@ namespace App {
           tClient.print(F(COLOR_RED "\r\n  Error: Invalid filename\r\n\r\n" COLOR_WHITE));
           return true;
         }
-        char tFileName[128] = {0};
+        char tFileName[128] = "";
         strncpy(tFileName, tFileStart, tFileLen);
         tFileName[tFileLen] = '\0';
         while (*tPtr == ' ' || *tPtr == '\t') ++tPtr;
@@ -75,7 +75,7 @@ namespace App {
         while (tLinePtr < tEndPtr) {
           const char *tLineEnd = tLinePtr;
           while (tLineEnd < tEndPtr && *tLineEnd != '\r' && *tLineEnd != '\n') ++tLineEnd;
-          char tFmt[8];
+          char tFmt[8] = "";
           tClient.write(COLOR_YELLOW);
           snprintf(tFmt, sizeof(tFmt), "%%%uu  ", tWidth);
           tClient.printf(tFmt, tLineNum++);

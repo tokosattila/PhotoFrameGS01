@@ -1,6 +1,6 @@
 /**
- * @file TimeDate.cpp
- * @brief Unit tests for TimeDate functions (pure C++ logic, no hardware)
+ * @file NTP.cpp
+ * @brief Unit tests for NTP functions (pure C++ logic, no hardware)
  */
 
 #include <unity.h>
@@ -9,7 +9,7 @@
 #include <ctime>
 
 // ============================================================================
-// Standalone implementations for testing (extracted from TimeDate.cpp)
+// Standalone implementations for testing (extracted from NTP.cpp)
 // ============================================================================
 
 void FormatTwoDigits(char *tBuffer, int tValue) {

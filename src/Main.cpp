@@ -80,7 +80,7 @@ class Application {
 
     bool TryDisplayImage(const char *tImage) {
       if (!tImage || *tImage == '\0') return false;
-      char tFullPath[128] = {0};
+      char tFullPath[128] = "";
       snprintf(tFullPath, sizeof(tFullPath), "/%s/%s", mCfg.Display.ImagesDir.c_str(), tImage);
       if (!LFS.Exists(tFullPath)) return false;
       xLOG("Trying image → %s", tImage);
@@ -163,7 +163,7 @@ class Application {
       BTN.Start();
       xTaskCreatePinnedToCore(&ButtonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, nullptr, 12, nullptr, 1);
       vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
-      char tTitleBuffer[64];
+      char tTitleBuffer[64] = "";
       DSP.SetFont(&OpenSans13B);
       snprintf(tTitleBuffer, sizeof(tTitleBuffer), "%s ¤ MAINTENANCE [%s MODE]", mCfg.Device.Name.c_str(), (mCfg.Connection.ApModeEnable ? "AP" : "STA"));
       DSP.WriteTextWithBoxCentered(tTitleBuffer);     
@@ -219,7 +219,7 @@ class Application {
       UTL.PrintInfo("Device starts in → Low Battery Mode", EUtilsInfoType::Single);
       LFS.Init(true);
       DSP.Init();
-      char tBuffer[32];
+      char tBuffer[32] = "";
       const int32_t tWidth = 160;
       const int32_t tHeight = 60;
       const int32_t tLayers = 2;

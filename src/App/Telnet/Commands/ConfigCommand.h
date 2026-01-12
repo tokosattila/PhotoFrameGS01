@@ -28,7 +28,7 @@ namespace App {
         const char *tKeyStart = tPtr;
         while (*tPtr != '\0' && *tPtr != ' ' && *tPtr != '\t') ++tPtr;
         size_t tKeyLen = tPtr - tKeyStart;
-        char tKey[32] = {0};
+        char tKey[32] = "";
         if (tKeyLen >= sizeof(tKey)) {
           tClient.print(F(COLOR_RED "\r\n  Error: Key too long\r\n\r\n" COLOR_WHITE));
           return true;
@@ -58,7 +58,7 @@ namespace App {
           ++tPtr;
         }
         size_t tValueLen = tPtr - tValueStart;
-        char tValue[128] = {0};
+        char tValue[128] = "";
         if (tValueLen >= sizeof(tValue)) {
           tClient.print(F(COLOR_RED "\r\n  Error: Value too long\r\n\r\n" COLOR_WHITE));
           return true;

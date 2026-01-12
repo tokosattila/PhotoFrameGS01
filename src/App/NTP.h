@@ -23,6 +23,7 @@ namespace App {
       String Date(char format = ' ');
       bool SyncSystemTime();
       void PrintDateTimeInfo();
+      bool IsInternetAvailable() const;
     private:
       NTP_();
       NTP_(const NTP_&) = delete;

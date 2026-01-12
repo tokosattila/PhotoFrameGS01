@@ -219,7 +219,7 @@ namespace App {
 
   void Utils_::PrintFlashInfo() {
     char tText[19] = "";
-    char tFlasChipSize[16];
+    char tFlasChipSize[16] = "";
     PrintInfo("FLASH INFO",EUtilsInfoType::Title);
     snprintf(tText, sizeof(tText), "Frequency: %d MHz", ESP.getFlashChipSpeed() / 1000000);
     PrintInfo(tText);
@@ -241,7 +241,7 @@ namespace App {
       tIt = nvs_entry_next(tIt);
     }
     nvs_release_iterator(tIt);
-    char tText[128]{};
+    char tText[128] = "";
     snprintf(tText, sizeof(tText), "NVS: %zu / %zu entries", tUsedCfg, tStats.total_entries);
     PrintInfo(tText);
   }
@@ -271,8 +271,8 @@ namespace App {
     uint32_t tTotalDram = heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     uint32_t tFreeDram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
     uint32_t tUsedDram = tTotalDram - tFreeDram;
-    char tUsedDramBuffer[16];
-    char tTotalDramBuffer[16];
+    char tUsedDramBuffer[16] = "";
+    char tTotalDramBuffer[16] = "";
     ByteToReadableSize(tUsedDram, tUsedDramBuffer, sizeof(tUsedDramBuffer));
     ByteToReadableSize(tTotalDram, tTotalDramBuffer, sizeof(tTotalDramBuffer));
     snprintf(tText, sizeof(tText), "DRAM: %s / %s", tUsedDramBuffer, tTotalDramBuffer);
@@ -284,8 +284,8 @@ namespace App {
     uint32_t tTotalIram = heap_caps_get_total_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
     uint32_t tFreeIram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_EXEC);
     uint32_t tUsedIram = tTotalIram - tFreeIram;
-    char tUsedIramBuffer[16];
-    char tTotalIramBuffer[16];
+    char tUsedIramBuffer[16] = "";
+    char tTotalIramBuffer[16] = "";
     ByteToReadableSize(tUsedIram, tUsedIramBuffer, sizeof(tUsedIramBuffer));
     ByteToReadableSize(tTotalIram, tTotalIramBuffer, sizeof(tTotalIramBuffer));
     snprintf(tText, sizeof(tText), "IRAM: %s / %s", tUsedIramBuffer, tTotalIramBuffer);
@@ -307,8 +307,8 @@ namespace App {
     uint32_t tTotalPsram = heap_caps_get_total_size(MALLOC_CAP_SPIRAM);
     uint32_t tFreePsram = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
     uint32_t tUsedPsram = tTotalPsram - tFreePsram;
-    char tUsedPsramBuffer[16];
-    char tTotalPsramBuffer[16];
+    char tUsedPsramBuffer[16] = "";
+    char tTotalPsramBuffer[16] = "";
     ByteToReadableSize(tUsedPsram, tUsedPsramBuffer, sizeof(tUsedPsramBuffer));
     ByteToReadableSize(tTotalPsram, tTotalPsramBuffer, sizeof(tTotalPsramBuffer));
     snprintf(tText, sizeof(tText), "PSRAM: %s / %s", tUsedPsramBuffer, tTotalPsramBuffer);

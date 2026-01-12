@@ -29,6 +29,10 @@ namespace App {
 
   void NTP_::Init() {
     ReloadConfig();
+    if (!IsInternetAvailable()) {
+      xLOG("NTP initialization skipped → no internet connection (AP mode)");
+      return;
+    }
     Begin();
   }
 
@@ -38,6 +42,10 @@ namespace App {
   }
 
   bool NTP_::Begin() {
+    if (!IsInternetAvailable()) {
+      xLOG("NTP connection failed → no internet connection (AP mode)");
+      return false;
+    }
     xLOG("Connecting to NTP → %s", mCfg.Server.c_str());
     if (mUDP.begin(mCfg.NtpPort) == 0) {
       xLOG("Connecting to NTP server failed!");
@@ -188,13 +196,13 @@ namespace App {
   }
 
   String NTP_::Time(char tFormat) {
-    char tTimeBuffer[9];
+    char tTimeBuffer[9] = "";
     GetTime(tTimeBuffer, sizeof(tTimeBuffer), tFormat);
     return String(tTimeBuffer); 
   }
 
   String NTP_::Date(char tFormat) {
-    char tDateBuffer[11];
+    char tDateBuffer[11] = "";
     GetDate(tDateBuffer, sizeof(tDateBuffer), tFormat);
     return String(tDateBuffer); 
   }
@@ -245,10 +253,10 @@ namespace App {
     bool tSuccess = ForceTimeSync();
     if (tSuccess) {
       xLOG("System time synchronized!");
-      char tDate[32];
+      char tDate[32] = "";
       GetDate(tDate, sizeof(tDate));
       xLOG("Current date → %s", tDate);
-      char tTime[9];
+      char tTime[9] = "";
       GetTime(tTime, sizeof(tTime));
       xLOG("Current time → %s", tTime);
     } else xLOG("System time failed synchronized!");
@@ -295,6 +303,11 @@ namespace App {
     snprintf(tText, sizeof(tText), "Time zone: GMT%+d (%s)", tGmt, tZone);
     UTL.PrintInfo(tText);
     UTL.PrintInfo("", EUtilsInfoType::Footer);
+  }
+
+  bool NTP_::IsInternetAvailable() const {
+    if (CON.IsApMode()) return false;
+    return CON.HasActiveWifiClient();
   }
 
 }

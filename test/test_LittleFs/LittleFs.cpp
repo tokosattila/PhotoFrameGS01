@@ -1,6 +1,6 @@
 /**
- * @file test_filesystem.cpp
- * @brief Unit tests for FileSystem path functions (pure C++ logic, no hardware)
+ * @file test_littlefs.cpp
+ * @brief Unit tests for LittleFS path functions (pure C++ logic, no hardware)
  */
 
 #include <unity.h>
@@ -10,7 +10,7 @@
 #include <cstdio>
 
 // ============================================================================
-// Standalone implementations for testing (extracted from FileSystem.cpp)
+// Standalone implementations for testing (extracted from LittleFs.cpp)
 // ============================================================================
 
 static char sNormalizedPath[128] = {0};

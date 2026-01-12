@@ -11,6 +11,11 @@ namespace App {
         return "timestamp"; 
       }
       bool Execute(const char *tArguments, WiFiClient &tClient) override {
+        if (!TME.IsInternetAvailable()) {
+          tClient.print(F(COLOR_RED "\r\n  Error: NTP unavailable in AP mode\r\n" COLOR_YELLOW));
+          tClient.print(F("  Switch to STA mode to use time synchronization\r\n\r\n" COLOR_WHITE));
+          return true;
+        }
         TME.Init();
         TME.SyncSystemTime();
         char tTimeStamp[16];

@@ -11,8 +11,8 @@ namespace App {
         return "fetch"; 
       }
       bool Execute(const char *tArguments, WiFiClient &tClient) override {
-        char tUrl[256];
-        char tFilename[128];
+        char tUrl[256] = "";
+        char tFilename[128] = "";
         if (!ParseArguments(tArguments, tUrl, sizeof(tUrl), tFilename, sizeof(tFilename), tClient)) return true;
         String tHost, tPath;
         uint16_t tPort;
@@ -121,7 +121,7 @@ namespace App {
             tTestFile.close();
           }
         } else if (tFilename[0] != '/') {
-          char tTmp[128];
+          char tTmp[128] = "";
           snprintf(tTmp, sizeof(tTmp), "%s%s/%s", (tImgDir[0] == '/') ? "" : "/", tImgDir, tFilename);
           strncpy(tFilename, tTmp, tSize - 1);
           tFilename[tSize - 1] = '\0';
@@ -176,7 +176,7 @@ namespace App {
         tSecure.setInsecure();
         tSecure.setHandshakeTimeout(30);
         if (!tSecure.connect(tHost.c_str(), tPort)) {
-          char tErr[64] = {0};
+          char tErr[64] = "";
           tSecure.lastError(tErr, sizeof(tErr));
           tClient.printf(COLOR_RED "\r\n  Error: HTTPS connection failed: %s\r\n\r\n" COLOR_WHITE, tErr);
           return -1;
@@ -246,7 +246,7 @@ namespace App {
           tClient.printf(COLOR_RED "\r\n  Error: File exceeded %dkB limit\r\n" COLOR_WHITE, kMaxFileSizeKB);
           return true;
         }
-        char tSizeBuf[16];
+        char tSizeBuf[16] = "";
         UTL.ByteToReadableSize(tBytes, tSizeBuf, sizeof(tSizeBuf));
         tClient.printf(COLOR_GREEN "\r\n  OK: %s (%s)\r\n\r\n" COLOR_WHITE, tFilename, tSizeBuf);
         return true;

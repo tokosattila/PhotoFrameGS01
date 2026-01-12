@@ -5,8 +5,6 @@
 
 namespace App {
 
-  using FConnectionCallback = FDefaultCallback;
-
   class Connection_ {
     DEFINE_TAG("CON");
     friend class AutoGuard<Connection_>;
@@ -20,6 +18,7 @@ namespace App {
       void Stop();
       const char *GetIpAddress();
       bool HasActiveWifiClient() const;
+      bool IsApMode() const;
       void Callback(FConnectionCallback tCallback);
     private:
       Connection_();

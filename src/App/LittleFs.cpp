@@ -82,7 +82,7 @@ namespace App {
     Guard tLock;
     mListPos = 0;
     mListBuffer[0] = '\0';
-    char tFullPathBuffer[128];
+    char tFullPathBuffer[128] = "";
     strncpy(tFullPathBuffer, NormalizePath(tPath), sizeof(tFullPathBuffer) - 1);
     tFullPathBuffer[sizeof(tFullPathBuffer) - 1] = '\0';
     File tRoot = LittleFS.open(tFullPathBuffer);
@@ -101,14 +101,14 @@ namespace App {
       if (tEntry.isDirectory() && !IsFile(tShort)) {
         AppendToBuffer(tShort, strlen(tShort));
         AppendToBuffer("/\r\n", 3);
-        char tSubBuffer[128];
+        char tSubBuffer[128] = "";
         snprintf(tSubBuffer, sizeof(tSubBuffer), "/%s", tEntry.name());
         File tSub = LittleFS.open(tSubBuffer);
         File tFile = tSub.openNextFile();
         while (tFile) {
           const char *tName = GetFileName(tFile.name());
           if (IsFile(tName)) {
-            char tBuffer[16];
+            char tBuffer[16] = "";
             UTL.ByteToReadableSize(tFile.size(), tBuffer, sizeof(tBuffer));
             AppendToBuffer("  ", 2);
             AppendToBuffer(tName, strlen(tName));
@@ -128,7 +128,7 @@ namespace App {
     while (tFileEntry) {
       const char *tShort = GetFileName(tFileEntry.name());
       if (IsFile(tShort)) {
-        char tBuffer[16];
+        char tBuffer[16] = "";
         UTL.ByteToReadableSize(tFileEntry.size(), tBuffer, sizeof(tBuffer));
         AppendToBuffer(tShort, strlen(tShort));
         AppendToBuffer(" [", 2);
@@ -159,7 +159,7 @@ namespace App {
     Guard tLock;
     mReadValid = false;
     mReadBuffer[0] = '\0';
-    char tNormalizedPath[128];
+    char tNormalizedPath[128] = "";
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     File tFile = LittleFS.open(tNormalizedPath, tMode);
@@ -188,7 +188,7 @@ namespace App {
 
   bool LittleFS_::WriteFile(const char *tPath, const char *tData, bool tVerbose) {
     Guard tLock;
-    char tNormalizedPath[128];
+    char tNormalizedPath[128] = "";
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     const char *tName = GetFileName(tNormalizedPath);
@@ -291,7 +291,7 @@ namespace App {
   }
 
   const char *LittleFS_::NormalizePath(const char *tPath) {
-    static char sNDir[128] = {0};
+    static char sNDir[128] = "";
     if (!tPath || tPath[0] == '\0') strcpy(sNDir, "/");
     else if (tPath[0] == '/') strncpy(sNDir, tPath, sizeof(sNDir) - 1);
     else snprintf(sNDir, sizeof(sNDir), "/%s", tPath);
@@ -322,7 +322,7 @@ namespace App {
       xLOG("Cannot open directory → %s", tDir);
       return {};
     }
-    char tSearchExt[16];
+    char tSearchExt[16] = "";
     if (tExt[0] == '.') strncpy(tSearchExt, tExt, sizeof(tSearchExt)-1);
     else snprintf(tSearchExt, sizeof(tSearchExt), ".%s", tExt);
     tSearchExt[sizeof(tSearchExt)-1] = '\0';
@@ -361,7 +361,7 @@ namespace App {
     if (tCurrentFilename && tCurrentFilename[0]) {
       const char *tName = strrchr(tCurrentFilename, '/');
       tName = tName ? tName + 1 : tCurrentFilename;
-      char tSearch[128];
+      char tSearch[128] = "";
       snprintf(tSearch, sizeof(tSearch), "%s", tName);
       for (size_t i = 0; i < mFilesCount; ++i) {
         const char *tEntryName = strrchr(mFileList[i], '/');
@@ -384,7 +384,7 @@ namespace App {
       strncpy(mFileBuffer, "Error: No path specified\r\n", sizeof(mFileBuffer) - 1);
       return mFileBuffer;
     }
-    char tNormalizedPath[128];
+    char tNormalizedPath[128] = "";
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     if (!LittleFS.exists(tNormalizedPath)) {
@@ -404,7 +404,7 @@ namespace App {
     size_t tSize = tFile.size();
     if (tSize > sizeof(mFileBuffer)) {
       tFile.close();
-      char tSizeBuffer[16];
+      char tSizeBuffer[16] = "";
       UTL.ByteToReadableSize((uint32_t)tSize, tSizeBuffer, sizeof(tSizeBuffer));
       snprintf(mFileBuffer, sizeof(mFileBuffer), "Error: File too large (%s).\r\n", tSizeBuffer);
       return mFileBuffer;

@@ -5,8 +5,6 @@
 
 namespace App {
 
-  using FConnectionCallback = FDefaultCallback;
-
   struct SDirEntry {
     char Name[128];
     bool IsDir;
