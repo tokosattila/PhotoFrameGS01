@@ -205,12 +205,12 @@ ftp_password = 123456789
 
 ## 🔌 Pin Configuration
 
-| Pin | Function |
-|-----|----------|
-| GPIO39 | Button 1 |
-| GPIO34 | Button 2 |
-| GPIO36 | Button 3 / Battery ADC |
-| GPIO0 | Button 4 (Boot) |
+| Pin | Function | Description |
+|-----|----------|-------------|
+| GPIO39 | Button 1 | Wake from deep sleep, Enter maintenance mode |
+| GPIO34 | Button 2 | Factory reset (hold 30 sec) |
+| GPIO36 | Button 3 / Battery ADC | Battery voltage measurement |
+| GPIO0 | Button 4 (Boot) | Boot mode selection |
 
 ## 📦 Dependencies
 
