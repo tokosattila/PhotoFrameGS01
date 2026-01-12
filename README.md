@@ -4,16 +4,22 @@ E-ink digital picture frame with remote image updates via FTP and configuration 
 
 > **📌 Note:** This project is designed for the older LilyGo T5 4.7" E-Paper (WROVER-E). For the newer **LilyGo T5 4.7" E-Paper Plus** version, check out [PhotoFrameGS02](https://github.com/tokosattila/PhotoFrameGS02.git).
 
-<p align="center">
-  <img src="docs/images/pic01.jpg" width="30%" alt="Photo Frame Display" style="margin: 0 10px;" /> 
-  <img src="docs/images/pic02.jpg" width="30%" alt="Photo Frame Hardware" style="margin: 0 10px;" /> 
-  <img src="docs/images/pic03.jpg" width="30%" alt="Photo Frame Back Side" style="margin: 0 10px;" />
-</p>
-<p align="center">
-  <em>E-Paper Display with Image</em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <em>Hardware Front View</em>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <em>Back Side with Battery</em>
-</p>
+<table align="center">
+  <tr>
+    <td align="center" style="padding: 0 20px;">
+      <img src="docs/images/pic01.jpg" width="100%" alt="Photo Frame Display" /><br/>
+      <em>E-Paper Display with Image</em>
+    </td>
+    <td align="center" style="padding: 0 20px;">
+      <img src="docs/images/pic02.jpg" width="100%" alt="Photo Frame Hardware" /><br/>
+      <em>Hardware Front View</em>
+    </td>
+    <td align="center" style="padding: 0 20px;">
+      <img src="docs/images/pic03.jpg" width="100%" alt="Photo Frame Back Side" /><br/>
+      <em>Back Side with Battery</em>
+    </td>
+  </tr>
+</table>
 
 ## 🔧 Hardware
 
