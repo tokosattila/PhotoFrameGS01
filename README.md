@@ -1,4 +1,4 @@
-# PhotoFrameGS01
+# Photo Frame GS01
 
 E-ink digital picture frame with remote image updates via FTP and configuration settings adjustable through Telnet. Features deep sleep mode for extended battery life.
 
