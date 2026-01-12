@@ -4,6 +4,10 @@ E-ink digital picture frame with remote image updates via FTP and configuration 
 
 > **📌 Note:** This project is designed for the older LilyGo T5 4.7" E-Paper (WROVER-E). For the newer **LilyGo T5 4.7" E-Paper Plus** version, check out [PhotoFrameGS02](https://github.com/tokosattila/PhotoFrameGS02.git).
 
+<p align="center">
+  <img src="docs/images/pic01.jpg" width="30%" alt="Photo Frame Display" /> <img src="docs/images/pic02.jpg" width="30%" alt="Photo Frame Hardware" /> <img src="docs/images/pic03.jpg" width="30%" alt="Photo Frame Back Side" />
+</p>
+
 ## 🔧 Hardware
 
 | Component | Specification |
@@ -216,7 +220,7 @@ ftp_password = 123456789
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License
 
 Copyright (c) 2025-2026 Szeklerman
 
