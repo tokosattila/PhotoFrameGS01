@@ -19,8 +19,7 @@ E-ink digital picture frame with remote image updates via FTP and configuration 
 
 | Mode | Description |
 |------|-------------|
-| **Display Mode** | JPEG slideshow from LittleFS with grayscale rendering |
-| **Deep Sleep Mode** | Low-power state with configurable wake intervals (minutes to daily) |
+| **Photo Frame Mode** | JPEG slideshow from LittleFS with grayscale rendering, deep sleep between wake intervals (minutes to daily) |
 | **Maintenance Mode** | Button-triggered mode for configuration & remote management |
 | **Low Battery Mode** | Auto shutdown with battery icon display |
 
