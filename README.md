@@ -225,8 +225,3 @@ ftp_password = 123456789
 MIT License
 
 Copyright (c) 2025-2026 Szeklerman
-
----
-
-**Author:** Szeklerman  
-**Hardware:** LilyGo T5 4.7" E-Paper / ESP32-WROVER-E
