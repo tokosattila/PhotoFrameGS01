@@ -85,7 +85,7 @@ namespace App {
     Btn2 = 34U,
     Btn3 = 36U,
     Btn4 = 0U,
-    BtnBat = 36U
+    Batpin = 36U
   };
 
   enum class ETimerWakeUp : uint8_t {
@@ -160,12 +160,12 @@ namespace App {
     SConnectionConfig() = default;
   };
 
-  struct STimeDateConfig {
+  struct SNTPConfig {
     String Server;
     Port NtpPort {123};
     unsigned long GMTOffset = 0;
     unsigned long UpdateInterval = 0;
-    STimeDateConfig() = default;
+    SNTPConfig() = default;
   };
 
   struct SDisplayConfig {
@@ -205,7 +205,7 @@ namespace App {
 
   struct SAppConfig {
     SDeviceConfig Device {};
-    STimeDateConfig TimeDate {};
+    SNTPConfig NTP {};
     SConnectionConfig Connection {};
     SDisplayConfig Display {};
     STimerConfig Timer {};
@@ -223,7 +223,7 @@ namespace App {
   constexpr uint16_t DISPLAY_HEIGHT = 540;
   constexpr const char *IMAGE_EXT = ".jpg";
 
-  constexpr uint8_t BATTERY_PIN = static_cast<uint8_t>(EDevicePins::BtnBat);
+  constexpr uint8_t BATTERY_PIN = static_cast<uint8_t>(EDevicePins::Batpin);
   constexpr uint8_t SETTING_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
   constexpr uint8_t WAKE_UP_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
   constexpr uint8_t RESET_PIN = static_cast<uint8_t>(EDevicePins::Btn2);
@@ -257,8 +257,8 @@ namespace App {
 
 #include <App/Utils.h>
 #include <App/Configuration.h>
-#include <App/FileSystem.h>
-#include <App/TimeDate.h>
+#include <App/LittleFs.h>
+#include <App/NTP.h>
 #include <App/Connection.h>
 #include <App/Button.h>
 #include <App/Display.h>
@@ -276,8 +276,8 @@ namespace App {
 
 #define CFG Configuration_::Instance()
 #define UTL Utils_::Instance()
-#define LFS FileSystem_::Instance()
-#define TME TimeDate_::Instance()
+#define LFS LittleFS_::Instance()
+#define TME NTP_::Instance()
 #define CON Connection_::Instance()
 #define BTN Button_::Instance()
 #define DSP Display_::Instance()

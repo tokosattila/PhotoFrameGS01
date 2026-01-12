@@ -104,7 +104,7 @@ namespace App {
   template<> SAppConfig Configuration_::Get<SAppConfig>();
   template<> SDeviceConfig Configuration_::Get<SDeviceConfig>();
   template<> SConnectionConfig Configuration_::Get<SConnectionConfig>();
-  template<> STimeDateConfig Configuration_::Get<STimeDateConfig>();
+  template<> SNTPConfig Configuration_::Get<SNTPConfig>();
   template<> SDisplayConfig Configuration_::Get<SDisplayConfig>();
   template<> STimerConfig Configuration_::Get<STimerConfig>();
 

@@ -1,42 +1,43 @@
-#include <App/TimeDate.h>
+#include <App/NTP.h>
 
 namespace App {
 
-  TimeDate_ &TimeDate_::Instance() {
-    static TimeDate_ tInstance;
+  NTP_ &NTP_::Instance() {
+    static NTP_ tInstance;
     return tInstance;
   }
 
-  TimeDate_::TimeDate_() {
+  NTP_::NTP_() {
     mMutex = xSemaphoreCreateRecursiveMutex();
   }
 
-  TimeDate_::~TimeDate_() {
+  NTP_::~NTP_() {
     if (mMutex) {
       vSemaphoreDelete(mMutex);
       mMutex = nullptr;
     }
+    End();
   }
 
-  void TimeDate_::Lock() {
+  void NTP_::Lock() {
     if (Instance().mMutex) xSemaphoreTakeRecursive(Instance().mMutex, portMAX_DELAY);
   }
 
-  void TimeDate_::Unlock() {
+  void NTP_::Unlock() {
     if (Instance().mMutex) xSemaphoreGiveRecursive(Instance().mMutex);
   }
 
-  void TimeDate_::Init() {
+  void NTP_::Init() {
     ReloadConfig();
     Begin();
   }
 
-  void TimeDate_::ReloadConfig() {
+  void NTP_::ReloadConfig() {
     Guard tLock;
-    mCfg = CFG.Get<STimeDateConfig>(); 
+    mCfg = CFG.Get<SNTPConfig>();
   }
 
-  bool TimeDate_::Begin() {
+  bool NTP_::Begin() {
     xLOG("Connecting to NTP → %s", mCfg.Server.c_str());
     if (mUDP.begin(mCfg.NtpPort) == 0) {
       xLOG("Connecting to NTP server failed!");
@@ -48,12 +49,12 @@ namespace App {
     return ForceTimeSync();
   }
 
-  void TimeDate_::End() {
+  void NTP_::End() {
     mUDP.stop();
     mUDPSetup = false;
   }
 
-  bool TimeDate_::IsPacketValid(uint8_t *tPacket) {
+  bool NTP_::IsPacketValid(uint8_t *tPacket) {
     if ((tPacket[0] & 0b11000000) == 0b11000000) return false;
     if (((tPacket[0] & 0b00111000) >> 3) < 3) return false;
     if ((tPacket[0] & 0b00000111) != 4) return false;
@@ -62,7 +63,7 @@ namespace App {
     return true;
   }
 
-  bool TimeDate_::UpdateTime() {
+  bool NTP_::UpdateTime() {
     unsigned long tCurrentMillis = millis();
     if (tCurrentMillis - mLastUpdate >= mCfg.UpdateInterval || mLastUpdate == 0) {
       if (!mUDPSetup && !Begin()) return false;
@@ -71,7 +72,7 @@ namespace App {
     return true;
   }
 
-  bool TimeDate_::ForceTimeSync() {
+  bool NTP_::ForceTimeSync() {
     while (mUDP.parsePacket()) mUDP.flush();
     SendNtpRequest();
     uint8_t tTimeoutCounter = 0;
@@ -98,7 +99,7 @@ namespace App {
     return true;
   }
 
-  void TimeDate_::SendNtpRequest() {
+  void NTP_::SendNtpRequest() {
     memset(mPacketBuffer, 0, kNtpPacketSize);
     mPacketBuffer[0] = 0b11100011;
     mPacketBuffer[2] = 6;
@@ -112,7 +113,7 @@ namespace App {
     mUDP.endPacket();
   }
 
-  unsigned long TimeDate_::GetCurrentEpoch() {
+  unsigned long NTP_::GetCurrentEpoch() {
     Guard tLock;
     UpdateTime();
     unsigned long tBase = mCurrentEpoch + ((millis() - mLastUpdate) / 1000UL);
@@ -122,11 +123,11 @@ namespace App {
     return tBase + tOffset;
   }
 
-  unsigned long TimeDate_::EpochTime() {
+  unsigned long NTP_::EpochTime() {
     return GetCurrentEpoch();
   }
 
-  void TimeDate_::GetTime(char *tBuffer, uint8_t tLength, char tFormat) {
+  void NTP_::GetTime(char *tBuffer, uint8_t tLength, char tFormat) {
     unsigned long tEpoch = GetCurrentEpoch();
     int tHours   = (tEpoch % SECONDS_PER_DAY) / SECONDS_PER_HOUR;
     int tMinutes = (tEpoch % SECONDS_PER_HOUR) / SECONDS_PER_MINUTE;
@@ -155,7 +156,7 @@ namespace App {
     }
   }
 
-  void TimeDate_::GetDate(char *tBuffer, uint8_t tLength, char tFormat) {
+  void NTP_::GetDate(char *tBuffer, uint8_t tLength, char tFormat) {
     UpdateTime();
     unsigned long tEpoch = GetCurrentEpoch();
     unsigned long tDays = tEpoch / SECONDS_PER_DAY;
@@ -186,30 +187,30 @@ namespace App {
     }
   }
 
-  String TimeDate_::Time(char tFormat) {
+  String NTP_::Time(char tFormat) {
     char tTimeBuffer[9];
     GetTime(tTimeBuffer, sizeof(tTimeBuffer), tFormat);
     return String(tTimeBuffer); 
   }
 
-  String TimeDate_::Date(char tFormat) {
+  String NTP_::Date(char tFormat) {
     char tDateBuffer[11];
     GetDate(tDateBuffer, sizeof(tDateBuffer), tFormat);
     return String(tDateBuffer); 
   }
 
-  void TimeDate_::FormatTwoDigits(char *tBuffer, int tValue) {
+  void NTP_::FormatTwoDigits(char *tBuffer, int tValue) {
     if (tValue < 0) tValue = 0;
     if (tValue > 99) tValue = 99;
     tBuffer[0] = '0' + tValue / 10;
     tBuffer[1] = '0' + tValue % 10;
   }
 
-  bool TimeDate_::IsLeapYear(unsigned long tYear) {
+  bool NTP_::IsLeapYear(unsigned long tYear) {
     return (tYear % 4 == 0) && (tYear % 100 != 0 || tYear % 400 == 0);
   }
 
-  bool TimeDate_::IsDST(unsigned long tEpoch) {
+  bool NTP_::IsDST(unsigned long tEpoch) {
     struct tm timeinfo;
     localtime_r((time_t*)&tEpoch, &timeinfo);
     int tYear = timeinfo.tm_year + 1900;
@@ -234,7 +235,7 @@ namespace App {
     return false;
   }
 
-  bool TimeDate_::SyncSystemTime() {
+  bool NTP_::SyncSystemTime() {
     if (!mUDPSetup) {
       if (!Begin()) {
         xLOG("System time failed synchronized!");
@@ -254,7 +255,7 @@ namespace App {
     return tSuccess;
   }
 
-  int8_t TimeDate_::GetGMTOffset() {
+  int8_t NTP_::GetGMTOffset() {
     UpdateTime();
     struct tm tLocal;
     localtime_r((time_t*)&mCurrentEpoch, &tLocal);
@@ -269,7 +270,7 @@ namespace App {
     return (int8_t)(tOffset / SECONDS_PER_HOUR);
   }
 
-  const char *TimeDate_::GetTimezoneName() {
+  const char *NTP_::GetTimezoneName() {
     struct tm tLocal;
     localtime_r((time_t*)&mCurrentEpoch, &tLocal);
     #ifdef __TM_ZONE
@@ -279,10 +280,10 @@ namespace App {
     return tIsDst ? "EEST" : "EET";
   }
 
-  void TimeDate_::PrintDateTimeInfo() {
+  void NTP_::PrintDateTimeInfo() {
     char tText[UTL.GetPrintInfoWidth() - 4] = "";
     xLOG_PL();
-    UTL.PrintInfo("TIMEDATE", EUtilsInfoType::Header);
+    UTL.PrintInfo("NTP", EUtilsInfoType::Header);
     UTL.PrintInfo("", EUtilsInfoType::Line);
     snprintf(tText, sizeof(tText), "NTP Server: %s", mCfg.Server.c_str());
     UTL.PrintInfo(tText);

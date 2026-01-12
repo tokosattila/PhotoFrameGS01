@@ -1,18 +1,18 @@
-#ifndef TIME_DATE_H
-#define TIME_DATE_H
+#ifndef NTP_H
+#define NTP_H
 
 #include <App/Global.h>
 
 namespace App {
 
-  class TimeDate_ {
+  class NTP_ {
     DEFINE_TAG("TME");
-    friend class AutoGuard<TimeDate_>;
+    friend class AutoGuard<NTP_>;
     public:
-      using Guard = AutoGuard<TimeDate_>;
-      static TimeDate_ &Instance();
+      using Guard = AutoGuard<NTP_>;
+      static NTP_ &Instance();
       void Init();
-      void ReloadConfig(); 
+      void ReloadConfig();
       bool Begin();
       void End();
       unsigned long EpochTime();
@@ -24,13 +24,13 @@ namespace App {
       bool SyncSystemTime();
       void PrintDateTimeInfo();
     private:
-      TimeDate_();
-      TimeDate_(const TimeDate_&) = delete;
-      TimeDate_ &operator=(const TimeDate_&) = delete;
-      ~TimeDate_();
+      NTP_();
+      NTP_(const NTP_&) = delete;
+      NTP_ &operator=(const NTP_&) = delete;
+      ~NTP_();
       WiFiUDP mUDP;
       mutable SemaphoreHandle_t mMutex;
-      STimeDateConfig mCfg {};
+      SNTPConfig mCfg {};
       static constexpr unsigned long mSevenZYYears = 2208988800UL;
       static const uint8_t kNtpPacketSize = 48;
       bool mUDPSetup = false;
@@ -48,7 +48,6 @@ namespace App {
       bool IsDST(unsigned long tEpoch);
       int8_t GetGMTOffset();
       const char *GetTimezoneName();
-
   };
 
 }

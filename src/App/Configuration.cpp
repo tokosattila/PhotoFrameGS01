@@ -143,10 +143,10 @@ namespace App {
     tDefaultConfig.Display.ImagesDir = IMAGES_DIR;
     tDefaultConfig.Display.ImageExt = IMAGE_EXT;
     tDefaultConfig.Display.CurrentFile = "";
-    tDefaultConfig.TimeDate.Server = "ro.pool.ntp.org";
-    tDefaultConfig.TimeDate.NtpPort = Port(123);
-    tDefaultConfig.TimeDate.GMTOffset = 2 * 60 * 60;
-    tDefaultConfig.TimeDate.UpdateInterval = 60 * 1000;
+    tDefaultConfig.NTP.Server = "ro.pool.ntp.org";
+    tDefaultConfig.NTP.NtpPort = Port(123);
+    tDefaultConfig.NTP.GMTOffset = 2 * 60 * 60;
+    tDefaultConfig.NTP.UpdateInterval = 60 * 1000;
     tDefaultConfig.Connection.ApModeEnable = true;
     tDefaultConfig.Connection.ApSsid = "PhotoFrameGS01";
     tDefaultConfig.Connection.ApPassword = "123456789";
@@ -233,8 +233,8 @@ namespace App {
     return tCfg;
   }
 
-  template<> STimeDateConfig Configuration_::Get<STimeDateConfig>() {
-    STimeDateConfig tCfg {};
+  template<> SNTPConfig Configuration_::Get<SNTPConfig>() {
+    SNTPConfig tCfg {};
     AccessConfig(true, [&]() {
       tCfg.Server = mConfig.getString(kNvsTimeServer, "ro.pool.ntp.org");
       tCfg.NtpPort = Port(mConfig.getUShort(kNvsTimePort, 123));
@@ -317,7 +317,7 @@ namespace App {
   template<> SAppConfig Configuration_::Get<SAppConfig>() {
     SAppConfig tCfg {};
     tCfg.Device = Get<SDeviceConfig>();
-    tCfg.TimeDate = Get<STimeDateConfig>();
+    tCfg.NTP = Get<SNTPConfig>();
     tCfg.Connection = Get<SConnectionConfig>();
     tCfg.Display = Get<SDisplayConfig>();
     tCfg.Timer = Get<STimerConfig>();
@@ -543,10 +543,10 @@ namespace App {
       else if (strcmp(tEntry.NvsKey, kNvsDisplayGamma) == 0) tConfig.Display.JpgGamma = Percentage(static_cast<uint8_t>(atoi(tValue)));
       else if (strcmp(tEntry.NvsKey, kNvsDisplayFile) == 0) tConfig.Display.CurrentFile = String(tValue);
     } else if (strcasecmp(tSection, "ntp") == 0) {
-      if (strcmp(tEntry.NvsKey, kNvsTimeServer) == 0) tConfig.TimeDate.Server = String(tValue);
-      else if (strcmp(tEntry.NvsKey, kNvsTimePort) == 0) tConfig.TimeDate.NtpPort = Port(static_cast<uint16_t>(atoi(tValue)));
-      else if (strcmp(tEntry.NvsKey, kNvsTimeGmtOffset) == 0) tConfig.TimeDate.GMTOffset = atol(tValue);
-      else if (strcmp(tEntry.NvsKey, kNvsTimeUpdate) == 0) tConfig.TimeDate.UpdateInterval = UTL.SafeAtoul(tValue, 60, 86400000, 3600);
+      if (strcmp(tEntry.NvsKey, kNvsTimeServer) == 0) tConfig.NTP.Server = String(tValue);
+      else if (strcmp(tEntry.NvsKey, kNvsTimePort) == 0) tConfig.NTP.NtpPort = Port(static_cast<uint16_t>(atoi(tValue)));
+      else if (strcmp(tEntry.NvsKey, kNvsTimeGmtOffset) == 0) tConfig.NTP.GMTOffset = atol(tValue);
+      else if (strcmp(tEntry.NvsKey, kNvsTimeUpdate) == 0) tConfig.NTP.UpdateInterval = UTL.SafeAtoul(tValue, 60, 86400000, 3600);
     } else if (strcasecmp(tSection, "ap mode") == 0) {
       if (strcmp(tEntry.NvsKey, kNvsConApEnable) == 0) tConfig.Connection.ApModeEnable = (strcasecmp(tValue, "true") == 0 || atoi(tValue) != 0);
       else if (strcmp(tEntry.NvsKey, kNvsConApSsid) == 0) tConfig.Connection.ApSsid = String(tValue);
@@ -636,10 +636,10 @@ namespace App {
       tSuccess = tSuccess && mConfig.putUChar(kNvsDisplayContrast, tConfig.Display.JpgContrast.Get());
       tSuccess = tSuccess && mConfig.putUChar(kNvsDisplayGamma, tConfig.Display.JpgGamma.Get());
       if (tSuccess && tConfig.Display.CurrentFile.length() > 0) tSuccess = mConfig.putString(kNvsDisplayFile, tConfig.Display.CurrentFile);
-      tSuccess = tSuccess && mConfig.putString(kNvsTimeServer, tConfig.TimeDate.Server);
-      tSuccess = tSuccess && mConfig.putUShort(kNvsTimePort, tConfig.TimeDate.NtpPort.Get());
-      tSuccess = tSuccess && mConfig.putInt(kNvsTimeGmtOffset, tConfig.TimeDate.GMTOffset);
-      tSuccess = tSuccess && mConfig.putUInt(kNvsTimeUpdate, tConfig.TimeDate.UpdateInterval);
+      tSuccess = tSuccess && mConfig.putString(kNvsTimeServer, tConfig.NTP.Server);
+      tSuccess = tSuccess && mConfig.putUShort(kNvsTimePort, tConfig.NTP.NtpPort.Get());
+      tSuccess = tSuccess && mConfig.putInt(kNvsTimeGmtOffset, tConfig.NTP.GMTOffset);
+      tSuccess = tSuccess && mConfig.putUInt(kNvsTimeUpdate, tConfig.NTP.UpdateInterval);
       tSuccess = tSuccess && mConfig.putBool(kNvsConApEnable, tConfig.Connection.ApModeEnable);
       tSuccess = tSuccess && mConfig.putString(kNvsConApSsid, tConfig.Connection.ApSsid);
       tSuccess = tSuccess && mConfig.putString(kNvsConApPass, tConfig.Connection.ApPassword);

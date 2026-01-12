@@ -111,7 +111,7 @@ namespace App {
       return tBuffer;
     }
     if (tAsDateTime) {
-      time_t tTime = (time_t)tEpoch + (mCfg.TimeDate.GMTOffset * 3600UL);
+      time_t tTime = (time_t)tEpoch + (mCfg.NTP.GMTOffset * 3600UL);
       struct tm tTm;
       localtime_r(&tTime, &tTm);
       snprintf(tBuffer, tLength, "%04d.%02d.%02d %02d:%02d:%02d", tTm.tm_year + 1900, tTm.tm_mon + 1, tTm.tm_mday, tTm.tm_hour, tTm.tm_min, tTm.tm_sec);
@@ -167,7 +167,10 @@ namespace App {
       for (uint8_t i = 0; i < tWidth; i++) xLOG_PR_("─");
       xLOG_PL_("─┤");
     }
-    uint8_t tTextLen = strlen(tText);
+    uint8_t tTextLen = 0;
+    for (const char *tPtr = tText; *tPtr; ++tPtr) {
+      if ((*tPtr & 0xC0) != 0x80) ++tTextLen;
+    }
     if (tTextLen > 0) {
       xLOG_PR_("│ ");
       uint8_t tRightPadding = (tTextLen < tWidth) ? (tWidth - tTextLen) : 0;
@@ -211,7 +214,7 @@ namespace App {
     snprintf(tText, sizeof(tText), "Frequency: %d MHz", ESP.getCpuFreqMHz());
     PrintInfo(tText);
     snprintf(tText, sizeof(tText), "Temperature: %.1f °C", temperatureRead());
-    PrintInfo(tText, EUtilsInfoType::Cell, mPrintInfoWidth + 1);
+    PrintInfo(tText, EUtilsInfoType::Cell, mPrintInfoWidth);
   }
 
   void Utils_::PrintFlashInfo() {

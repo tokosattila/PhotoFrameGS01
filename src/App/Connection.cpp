@@ -45,7 +45,7 @@ namespace App {
         break;
       }
       if (millis() - tStart > WIFI_CONNECT_TIMEOUT_MS) {
-        xLOG("Connection timeout, timedate syncronization skipped!");
+        xLOG("Connection timeout, NTP synchronization skipped!");
         break;
       }
       vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);

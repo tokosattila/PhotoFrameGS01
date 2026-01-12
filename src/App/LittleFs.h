@@ -1,5 +1,5 @@
-#ifndef FILE_SYSTEM_H
-#define FILE_SYSTEM_H
+#ifndef LITTLE_FS_H
+#define LITTLE_FS_H
 
 #include <App/Global.h>
 
@@ -13,12 +13,12 @@ namespace App {
     size_t Size;
   };
 
-  class FileSystem_ {
+  class LittleFS_ {
     DEFINE_TAG("LFS");
-    friend class AutoGuard<FileSystem_>;
+    friend class AutoGuard<LittleFS_>;
     public:
-      using Guard = AutoGuard<FileSystem_>;
-      static FileSystem_ &Instance();
+      using Guard = AutoGuard<LittleFS_>;
+      static LittleFS_ &Instance();
       bool Init(bool tVerbose = false);
       void ReloadConfig();
       void Callback(FConnectionCallback tCallback);
@@ -43,10 +43,10 @@ namespace App {
       uint32_t TotalBytes();
       uint32_t UsedBytes();
     private:
-      FileSystem_();
-      FileSystem_(const FileSystem_&) = delete;
-      FileSystem_ &operator=(const FileSystem_&) = delete;
-      ~FileSystem_();
+      LittleFS_();
+      LittleFS_(const LittleFS_&) = delete;
+      LittleFS_ &operator=(const LittleFS_&) = delete;
+      ~LittleFS_();
       mutable SemaphoreHandle_t mMutex = nullptr;
       FConnectionCallback mCallback = nullptr;
       SAppConfig mCfg {};

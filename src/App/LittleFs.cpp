@@ -1,27 +1,27 @@
-#include "FileSystem.h"
+#include <App/LittleFs.h>
 
 namespace App {
 
-  char FileSystem_::mReadBuffer[4096] = {0};
-  bool FileSystem_::mReadValid = false;
-  char FileSystem_::mListBuffer[4096] = {0};
-  char FileSystem_::mFileBuffer[4096] = {0};
-  size_t FileSystem_::mListPos = 0;
-  std::vector<const char*> App::FileSystem_::mFileList;
-  size_t FileSystem_::mFilesCount = 0;
-  char FileSystem_::mFilesLastDir[128] = {0};
-  char FileSystem_::mFilesLastExt[16] = {0};
+  char LittleFS_::mReadBuffer[4096] = {0};
+  bool LittleFS_::mReadValid = false;
+  char LittleFS_::mListBuffer[4096] = {0};
+  char LittleFS_::mFileBuffer[4096] = {0};
+  size_t LittleFS_::mListPos = 0;
+  std::vector<const char*> App::LittleFS_::mFileList;
+  size_t LittleFS_::mFilesCount = 0;
+  char LittleFS_::mFilesLastDir[128] = {0};
+  char LittleFS_::mFilesLastExt[16] = {0};
 
-  FileSystem_ &FileSystem_::Instance() {
-    static FileSystem_ tInstance;
+  LittleFS_ &LittleFS_::Instance() {
+    static LittleFS_ tInstance;
     return tInstance;
   }
 
-  FileSystem_::FileSystem_() {
+  LittleFS_::LittleFS_() {
     mMutex = xSemaphoreCreateRecursiveMutex();
   }
 
-  FileSystem_::~FileSystem_() {
+  LittleFS_::~LittleFS_() {
     for (size_t i = 0; i < mFileList.size(); ++i) free((void*)mFileList[i]);
     mFileList.clear();
     if (mMutex) {
@@ -31,15 +31,15 @@ namespace App {
     End();
   }
 
-  void FileSystem_::Lock() {
+  void LittleFS_::Lock() {
     if (Instance().mMutex) xSemaphoreTakeRecursive(Instance().mMutex, portMAX_DELAY);
   }
 
-  void FileSystem_::Unlock() {
+  void LittleFS_::Unlock() {
     if (Instance().mMutex) xSemaphoreGiveRecursive(Instance().mMutex);
   }
 
-  bool FileSystem_::Init(bool tVerbose) {
+  bool LittleFS_::Init(bool tVerbose) {
     ReloadConfig();
     Guard tLock;
     bool tOk = LittleFS.begin(false, mMountLabel, mMaxFiles, mPartLabel);
@@ -55,12 +55,12 @@ namespace App {
     return tOk;
   }
 
-  void FileSystem_::ReloadConfig() {
+  void LittleFS_::ReloadConfig() {
     Guard tLock;
     mCfg = CFG.Get<SAppConfig>();
   }
 
-  bool FileSystem_::IsMounted() {
+  bool LittleFS_::IsMounted() {
     Guard tLock;
     File tOk = LittleFS.open("/", "r");
     bool tIsMounted = tOk ? true : false;
@@ -68,17 +68,17 @@ namespace App {
     return tIsMounted;
   }
 
-  void FileSystem_::Callback(FConnectionCallback tCallback) {
+  void LittleFS_::Callback(FConnectionCallback tCallback) {
     Guard tLock;
     mCallback = tCallback;
   }
 
-  void FileSystem_::End() {
+  void LittleFS_::End() {
     Guard tLock;
     LittleFS.end();
   }
 
-  const char *FileSystem_::ListDir(const char *tPath) {
+  const char *LittleFS_::ListDir(const char *tPath) {
     Guard tLock;
     mListPos = 0;
     mListBuffer[0] = '\0';
@@ -141,21 +141,21 @@ namespace App {
     return mListBuffer;
   }
 
-  void FileSystem_::AppendToBuffer(const char *tData, size_t tLength) {
+  void LittleFS_::AppendToBuffer(const char *tData, size_t tLength) {
     if (mListPos + tLength >= sizeof(mListBuffer) - 1) tLength = sizeof(mListBuffer) - mListPos - 1;
     memcpy(mListBuffer + mListPos, tData, tLength);
     mListPos += tLength;
     mListBuffer[mListPos] = '\0';
   }
 
-  File FileSystem_::OpenFile(const char *tPath, const char *tMode, bool tCreate) {
+  File LittleFS_::OpenFile(const char *tPath, const char *tMode, bool tCreate) {
     tPath = NormalizePath(tPath);
     File tOk = LittleFS.open(tPath, tMode, tCreate);
     if (!tOk) xLOG("Cannot open: %s", tPath);
     return tOk;
   }
 
-  const char *FileSystem_::ReadFile(const char *tPath, const char *tMode) {
+  const char *LittleFS_::ReadFile(const char *tPath, const char *tMode) {
     Guard tLock;
     mReadValid = false;
     mReadBuffer[0] = '\0';
@@ -186,7 +186,7 @@ namespace App {
     }
   }
 
-  bool FileSystem_::WriteFile(const char *tPath, const char *tData, bool tVerbose) {
+  bool LittleFS_::WriteFile(const char *tPath, const char *tData, bool tVerbose) {
     Guard tLock;
     char tNormalizedPath[128];
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
@@ -210,7 +210,7 @@ namespace App {
     return tOk;
   }
 
-  bool FileSystem_::DeleteFile(const char *tPath) {
+  bool LittleFS_::DeleteFile(const char *tPath) {
     Guard tLock;
     bool tOk = LittleFS.remove(tPath);
     if (tOk) xLOG("File deleted → %s", tPath);
@@ -218,7 +218,7 @@ namespace App {
     return tOk;
   }
 
-  bool FileSystem_::CreateDir(const char *tPath, bool tVerbose) {
+  bool LittleFS_::CreateDir(const char *tPath, bool tVerbose) {
     Guard tLock;
     bool tExists = Exists(tPath);
     bool tOk = tExists ? true : LittleFS.mkdir(tPath);
@@ -230,7 +230,7 @@ namespace App {
     return tOk;
   }
 
-  bool FileSystem_::DeleteDir(const char *tPath) {
+  bool LittleFS_::DeleteDir(const char *tPath) {
     Guard tLock;
     bool tOk = LittleFS.rmdir(tPath);
     if (tOk) xLOG("Directory deleted → %s", tPath);
@@ -238,43 +238,41 @@ namespace App {
     return tOk;
   }
 
-  bool FileSystem_::Exists(const char *tPath) {
+  bool LittleFS_::Exists(const char *tPath) {
     Guard tLock;
     bool tOk = LittleFS.exists(tPath);
     return tOk;
   }
 
-  uint32_t FileSystem_::TotalBytes() {
+  uint32_t LittleFS_::TotalBytes() {
     Guard tLock;
     uint32_t tValue = LittleFS.totalBytes();
     return tValue;
   }
 
-  uint32_t FileSystem_::UsedBytes() {
+  uint32_t LittleFS_::UsedBytes() {
     Guard tLock;
     uint32_t tValue = LittleFS.usedBytes();
     return tValue;
   }
 
-  const char *FileSystem_::GetFileName(const char *tPath) {
+  const char *LittleFS_::GetFileName(const char *tPath) {
     const char *tName = strrchr(tPath, '/');
     return tName ? tName + 1 : tPath;
   }
 
-  void FileSystem_::BootstrapVault(bool tVerbose) {
-    char tIDirName[128] = {0};
+  void LittleFS_::BootstrapVault(bool tVerbose) {
+    char tIDirName[128] = "";
     UTL.PrependSlash(mCfg.Display.ImagesDir.c_str(), tIDirName, sizeof(tIDirName));
     CreateDir(tIDirName, tVerbose);
-    char tCFileName[128] = {0};
+    char tCFileName[128] = "";
     UTL.PrependSlash(mCfg.Device.ConfigFile.c_str(), tCFileName, sizeof(tCFileName));
-    if (tVerbose) {
-      const char *tCFileContent = CFG.PrepareAllConfigToINI();
-      WriteFile(tCFileName, tCFileContent, tVerbose);
-    }
+    const char *tCFileContent = CFG.PrepareAllConfigToINI();
+    WriteFile(tCFileName, tCFileContent, tVerbose);
     if (tVerbose) PrintListDir();
   }
 
-  void FileSystem_::PrintListDir() {
+  void LittleFS_::PrintListDir() {
     xLOG_PL();
     UTL.PrintInfo("FILE STRUCTURE", EUtilsInfoType::Header);
     UTL.PrintInfo("", EUtilsInfoType::Line);
@@ -292,7 +290,7 @@ namespace App {
     UTL.PrintInfo("", EUtilsInfoType::Footer);
   }
 
-  const char *FileSystem_::NormalizePath(const char *tPath) {
+  const char *LittleFS_::NormalizePath(const char *tPath) {
     static char sNDir[128] = {0};
     if (!tPath || tPath[0] == '\0') strcpy(sNDir, "/");
     else if (tPath[0] == '/') strncpy(sNDir, tPath, sizeof(sNDir) - 1);
@@ -301,7 +299,7 @@ namespace App {
     return sNDir;
   }
 
-  std::vector<const char*> FileSystem_::GetFilesInDir(const char *tDir, const char *tExt) {
+  std::vector<const char*> LittleFS_::GetFilesInDir(const char *tDir, const char *tExt) {
     Guard tLock;
     tDir = NormalizePath(tDir);
     if (strcmp(tDir, mFilesLastDir) != 0 || strcmp(tExt, mFilesLastExt) != 0) {
@@ -345,13 +343,13 @@ namespace App {
     return tResult;
   }
 
-  const char *FileSystem_::GetNextFile() {
+  const char *LittleFS_::GetNextFile() {
     Guard tLock;
     const char *tResult = GetNextFile(mCfg.Display.CurrentFile.c_str(), mCfg.Display.ImagesDir.c_str(), mCfg.Display.ImageExt.c_str());
     return tResult;
   }
 
-  const char *FileSystem_::GetNextFile(const char *tCurrentFilename, const char *tDir, const char *tExt) {
+  const char *LittleFS_::GetNextFile(const char *tCurrentFilename, const char *tDir, const char *tExt) {
     Guard tLock;
     tDir = NormalizePath(tDir);
     mFileList = GetFilesInDir(tDir, tExt);
@@ -378,7 +376,7 @@ namespace App {
     return tResult;
   }
 
-  const char *FileSystem_::CatFile(const char *tPath) {
+  const char *LittleFS_::CatFile(const char *tPath) {
     Guard tLock;
     mListPos = 0;
     mFileBuffer[0] = '\0';
