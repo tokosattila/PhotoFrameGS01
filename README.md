@@ -6,29 +6,9 @@ E-ink digital picture frame with remote image updates via FTP and configuration 
 
 ## 📸 Gallery
 
-<table align="center">
-  <tr>
-    <td align="center">
-      <img src="docs/images/pic01.jpg" width="240px" alt="Photo Frame Display" />
-    </td>
-    <td align="center">
-      <img src="docs/images/pic02.jpg" width="240px" alt="Photo Frame Hardware" />      
-    </td>
-    <td align="center">
-      <img src="docs/images/pic03.jpg" width="240px" alt="Photo Frame Back Side" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <em>Photo Frame with Image</em>
-    </td>
-    <td align="center">
-      <em>Hardware backide</em>
-    </td>
-    <td align="center">
-      <em>Backside covered</em>
-    </td>
-</table>
+| ![Photo Frame Display](docs/images/pic01.jpg) | ![Photo Frame Hardware](docs/images/pic02.jpg) | ![Photo Frame Back Side](docs/images/pic03.jpg) |
+|:---:|:---:|:---:|
+| *Photo Frame with Image* | *Hardware backside* | *Backside covered* |
 
 ## 🔧 Hardware
 
