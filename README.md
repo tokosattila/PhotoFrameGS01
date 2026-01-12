@@ -216,7 +216,9 @@ ftp_password = 123456789
 
 ## 📄 License
 
-MIT
+MIT License - see [LICENSE](LICENSE) file for details.
+
+Copyright (c) 2025-2026 Szeklerman
 
 ---
 
