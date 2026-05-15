@@ -354,54 +354,31 @@ void test_GlobMatch_multiple_stars() {
   TEST_ASSERT_FALSE(GlobMatch("*z*", "photo.jpg"));
 }
 
-bool IsSD(const char *tTarget) {
-  return strcasecmp(tTarget, "sd") == 0 || strcasecmp(tTarget, "sdcard") == 0;
-}
-bool IsLFS(const char *tTarget) {
-  return strcasecmp(tTarget, "lfs") == 0 || strcasecmp(tTarget, "littlefs") == 0;
-}
-bool IsValidTarget(const char *tTarget) {
-  return IsSD(tTarget) || IsLFS(tTarget);
-}
-bool IsSameTarget(const char *tA, const char *tB) {
-  return (IsSD(tA) && IsSD(tB)) || (IsLFS(tA) && IsLFS(tB));
+const char *ParseListSubcommand(const char *tInput) {
+  if (!tInput) return "";
+  const char *tPtr = tInput;
+  while (*tPtr != '\0' && *tPtr != ' ' && *tPtr != '\t') ++tPtr;
+  while (*tPtr == ' ' || *tPtr == '\t') ++tPtr;
+  return tPtr;
 }
 
-void test_IsSD() {
-  TEST_ASSERT_TRUE(IsSD("sd"));
-  TEST_ASSERT_TRUE(IsSD("SD"));
-  TEST_ASSERT_TRUE(IsSD("sdcard"));
-  TEST_ASSERT_TRUE(IsSD("SDCard"));
-  TEST_ASSERT_FALSE(IsSD("lfs"));
-  TEST_ASSERT_FALSE(IsSD("sd2"));
-  TEST_ASSERT_FALSE(IsSD(""));
+void test_ParseListSubcommand_none() {
+  TEST_ASSERT_EQUAL_STRING("", ParseListSubcommand("list"));
+  TEST_ASSERT_EQUAL_STRING("", ParseListSubcommand("list   "));
 }
 
-void test_IsLFS() {
-  TEST_ASSERT_TRUE(IsLFS("lfs"));
-  TEST_ASSERT_TRUE(IsLFS("LFS"));
-  TEST_ASSERT_TRUE(IsLFS("littlefs"));
-  TEST_ASSERT_TRUE(IsLFS("LittleFS"));
-  TEST_ASSERT_FALSE(IsLFS("sd"));
-  TEST_ASSERT_FALSE(IsLFS("lfs2"));
-  TEST_ASSERT_FALSE(IsLFS(""));
+void test_ParseListSubcommand_logs() {
+  TEST_ASSERT_EQUAL_STRING("logs", ParseListSubcommand("list logs"));
+  TEST_ASSERT_EQUAL_STRING("logs", ParseListSubcommand("list\tlogs"));
+  TEST_ASSERT_EQUAL_STRING("logs", ParseListSubcommand("list    logs"));
 }
 
-void test_IsValidTarget() {
-  TEST_ASSERT_TRUE(IsValidTarget("sd"));
-  TEST_ASSERT_TRUE(IsValidTarget("lfs"));
-  TEST_ASSERT_TRUE(IsValidTarget("sdcard"));
-  TEST_ASSERT_TRUE(IsValidTarget("littlefs"));
-  TEST_ASSERT_FALSE(IsValidTarget("usb"));
-  TEST_ASSERT_FALSE(IsValidTarget(""));
+void test_ParseListSubcommand_unknown_target() {
+  TEST_ASSERT_EQUAL_STRING("foo", ParseListSubcommand("list foo"));
 }
 
-void test_IsSameTarget() {
-  TEST_ASSERT_TRUE(IsSameTarget("sd", "sdcard"));
-  TEST_ASSERT_TRUE(IsSameTarget("lfs", "littlefs"));
-  TEST_ASSERT_TRUE(IsSameTarget("SD", "sd"));
-  TEST_ASSERT_FALSE(IsSameTarget("sd", "lfs"));
-  TEST_ASSERT_FALSE(IsSameTarget("lfs", "sdcard"));
+void test_ParseListSubcommand_null_input() {
+  TEST_ASSERT_EQUAL_STRING("", ParseListSubcommand(nullptr));
 }
 
 static const char *kImagesDir = "images";
@@ -540,10 +517,10 @@ int main(int argc, char **argv) {
   RUN_TEST(test_HasElapsedMs_exact_boundary);
   RUN_TEST(test_HasElapsedMs_wrap_not_elapsed);
   RUN_TEST(test_HasElapsedMs_wrap_elapsed);
-  RUN_TEST(test_IsSD);
-  RUN_TEST(test_IsLFS);
-  RUN_TEST(test_IsValidTarget);
-  RUN_TEST(test_IsSameTarget);
+  RUN_TEST(test_ParseListSubcommand_none);
+  RUN_TEST(test_ParseListSubcommand_logs);
+  RUN_TEST(test_ParseListSubcommand_unknown_target);
+  RUN_TEST(test_ParseListSubcommand_null_input);
   RUN_TEST(test_SplitPathAndFile_absolute_path);
   RUN_TEST(test_SplitPathAndFile_root_file);
   RUN_TEST(test_SplitPathAndFile_deep_path);

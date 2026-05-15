@@ -16,6 +16,7 @@ namespace App {
     Image,
     Sleep,
     Ota,
+    Info,
     Warn,
     Error
   };
@@ -80,7 +81,8 @@ void test_LogLevel_EnumValues(void) {
   TEST_ASSERT_EQUAL(1, static_cast<uint8_t>(App::ELogLevel::Halt));
   TEST_ASSERT_EQUAL(2, static_cast<uint8_t>(App::ELogLevel::Storage));
   TEST_ASSERT_EQUAL(9, static_cast<uint8_t>(App::ELogLevel::Ota));
-  TEST_ASSERT_EQUAL(11, static_cast<uint8_t>(App::ELogLevel::Error));
+  TEST_ASSERT_EQUAL(10, static_cast<uint8_t>(App::ELogLevel::Info));
+  TEST_ASSERT_EQUAL(12, static_cast<uint8_t>(App::ELogLevel::Error));
 }
 
 int main(int argc, char **argv) {

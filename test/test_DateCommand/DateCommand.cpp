@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstdio>
 
-struct SRTCDateTime {
+struct SDateTime {
   uint16_t Year = 2026;
   uint8_t Month = 1;
   uint8_t Day = 1;
@@ -24,13 +24,13 @@ enum class EDateParseResult {
   InvalidSecond
 };
 
-EDateParseResult ParseDateTimeArgs(const char *tArgs, SRTCDateTime &tDateTime) {
+EDateParseResult ParseDateTimeArgs(const char *tArgs, SDateTime &tDateTime) {
   if (!tArgs || tArgs[0] == '\0') return EDateParseResult::InvalidFormat;
   int tYear, tMonth, tDay, tHour, tMin, tSec;
   if (sscanf(tArgs, "%d.%d.%d %d:%d:%d", &tYear, &tMonth, &tDay, &tHour, &tMin, &tSec) != 6) {
     return EDateParseResult::InvalidFormat;
   }
-  if (tYear < 2026 || tYear > 2099) {
+  if (tYear < 2025 || tYear > 2099) {
     return EDateParseResult::InvalidYear;
   }
   if (tMonth < 1 || tMonth > 12) {
@@ -77,7 +77,7 @@ bool StartsWithSubcommand(const char *tPtr, const char *tSubcmd) {
 }
 
 void test_ParseDateTimeArgs_valid_datetime() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.15 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::Success, result);
   TEST_ASSERT_EQUAL_UINT16(2026, dt.Year);
@@ -89,7 +89,7 @@ void test_ParseDateTimeArgs_valid_datetime() {
 }
 
 void test_ParseDateTimeArgs_valid_max_values() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2099.12.31 23:59:59", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::Success, result);
   TEST_ASSERT_EQUAL_UINT16(2099, dt.Year);
@@ -101,10 +101,10 @@ void test_ParseDateTimeArgs_valid_max_values() {
 }
 
 void test_ParseDateTimeArgs_valid_min_values() {
-  SRTCDateTime dt;
-  EDateParseResult result = ParseDateTimeArgs("2026.01.01 00:00:00", dt);
+  SDateTime dt;
+  EDateParseResult result = ParseDateTimeArgs("2025.01.01 00:00:00", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::Success, result);
-  TEST_ASSERT_EQUAL_UINT16(2026, dt.Year);
+  TEST_ASSERT_EQUAL_UINT16(2025, dt.Year);
   TEST_ASSERT_EQUAL_UINT8(1, dt.Month);
   TEST_ASSERT_EQUAL_UINT8(1, dt.Day);
   TEST_ASSERT_EQUAL_UINT8(0, dt.Hour);
@@ -113,101 +113,91 @@ void test_ParseDateTimeArgs_valid_min_values() {
 }
 
 void test_ParseDateTimeArgs_invalid_format_missing_time() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.15", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidFormat, result);
 }
 
 void test_ParseDateTimeArgs_invalid_format_wrong_separator() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026-01-15 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidFormat, result);
 }
 
 void test_ParseDateTimeArgs_invalid_format_empty() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidFormat, result);
 }
 
 void test_ParseDateTimeArgs_invalid_format_null() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs(nullptr, dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidFormat, result);
 }
 
 void test_ParseDateTimeArgs_year_too_low() {
-  SRTCDateTime dt;
-  EDateParseResult result = ParseDateTimeArgs("2025.01.15 14:30:45", dt);
+  SDateTime dt;
+  EDateParseResult result = ParseDateTimeArgs("2024.12.31 23:59:59", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidYear, result);
 }
 
 void test_ParseDateTimeArgs_year_too_high() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2100.01.15 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidYear, result);
 }
 
 void test_ParseDateTimeArgs_month_zero() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.00.15 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidMonth, result);
 }
 
 void test_ParseDateTimeArgs_month_13() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.13.15 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidMonth, result);
 }
 
 void test_ParseDateTimeArgs_day_zero() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.00 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidDay, result);
 }
 
 void test_ParseDateTimeArgs_day_32() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.32 14:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidDay, result);
 }
 
 void test_ParseDateTimeArgs_hour_24() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.15 24:30:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidHour, result);
 }
 
 void test_ParseDateTimeArgs_minute_60() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.15 14:60:45", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidMinute, result);
 }
 
 void test_ParseDateTimeArgs_second_60() {
-  SRTCDateTime dt;
+  SDateTime dt;
   EDateParseResult result = ParseDateTimeArgs("2026.01.15 14:30:60", dt);
   TEST_ASSERT_EQUAL(EDateParseResult::InvalidSecond, result);
 }
 
-void test_GetDateSubcommand_rtc() {
-  const char *result = GetDateSubcommand("date rtc");
-  TEST_ASSERT_EQUAL_STRING("rtc", result);
+void test_GetDateSubcommand_set() {
+  const char *result = GetDateSubcommand("date set 2026.01.15 14:30:45");
+  TEST_ASSERT_TRUE(StartsWithSubcommand(result, "set 2026.01.15"));
 }
 
-void test_GetDateSubcommand_rtc_set() {
-  const char *result = GetDateSubcommand("date rtc set 2026.01.15 14:30:45");
-  TEST_ASSERT_TRUE(StartsWithSubcommand(result, "rtc set"));
-}
-
-void test_GetDateSubcommand_rtc_sync_from_ntp() {
-  const char *result = GetDateSubcommand("date rtc sync-from-ntp");
-  TEST_ASSERT_EQUAL_STRING("rtc sync-from-ntp", result);
-}
-
-void test_GetDateSubcommand_rtc_sync_to_system() {
-  const char *result = GetDateSubcommand("date rtc sync-to-system");
-  TEST_ASSERT_EQUAL_STRING("rtc sync-to-system", result);
+void test_GetDateSubcommand_unknown_subcommand() {
+  const char *result = GetDateSubcommand("date foo");
+  TEST_ASSERT_EQUAL_STRING("foo", result);
 }
 
 void test_GetDateSubcommand_no_subcommand() {
@@ -216,8 +206,8 @@ void test_GetDateSubcommand_no_subcommand() {
 }
 
 void test_GetDateSubcommand_with_spaces() {
-  const char *result = GetDateSubcommand("date   rtc");
-  TEST_ASSERT_EQUAL_STRING("rtc", result);
+  const char *result = GetDateSubcommand("date   set 2026.01.15 14:30:45");
+  TEST_ASSERT_EQUAL_STRING("set 2026.01.15 14:30:45", result);
 }
 
 void test_GetDateSubcommand_null() {
@@ -226,22 +216,22 @@ void test_GetDateSubcommand_null() {
 }
 
 void test_IsSubcommand_exact_match() {
-  TEST_ASSERT_TRUE(IsSubcommand("rtc", "rtc"));
-  TEST_ASSERT_TRUE(IsSubcommand("rtc sync-from-ntp", "rtc sync-from-ntp"));
+  TEST_ASSERT_TRUE(IsSubcommand("set", "set"));
+  TEST_ASSERT_TRUE(IsSubcommand("foo", "foo"));
 }
 
 void test_IsSubcommand_no_match() {
-  TEST_ASSERT_FALSE(IsSubcommand("rtc", "ntp"));
-  TEST_ASSERT_FALSE(IsSubcommand("rtc set", "rtc"));
+  TEST_ASSERT_FALSE(IsSubcommand("set", "foo"));
+  TEST_ASSERT_FALSE(IsSubcommand("set 2026.01.15", "set"));
 }
 
 void test_StartsWithSubcommand_match() {
-  TEST_ASSERT_TRUE(StartsWithSubcommand("rtc set 2026.01.15", "rtc set "));
-  TEST_ASSERT_TRUE(StartsWithSubcommand("rtc", "rtc"));
+  TEST_ASSERT_TRUE(StartsWithSubcommand("set 2026.01.15", "set "));
+  TEST_ASSERT_TRUE(StartsWithSubcommand("set", "set"));
 }
 
 void test_StartsWithSubcommand_no_match() {
-  TEST_ASSERT_FALSE(StartsWithSubcommand("ntp", "rtc"));
+  TEST_ASSERT_FALSE(StartsWithSubcommand("foo", "set"));
 }
 
 void setUp(void) {}
@@ -265,10 +255,8 @@ int main(int argc, char **argv) {
   RUN_TEST(test_ParseDateTimeArgs_hour_24);
   RUN_TEST(test_ParseDateTimeArgs_minute_60);
   RUN_TEST(test_ParseDateTimeArgs_second_60);
-  RUN_TEST(test_GetDateSubcommand_rtc);
-  RUN_TEST(test_GetDateSubcommand_rtc_set);
-  RUN_TEST(test_GetDateSubcommand_rtc_sync_from_ntp);
-  RUN_TEST(test_GetDateSubcommand_rtc_sync_to_system);
+  RUN_TEST(test_GetDateSubcommand_set);
+  RUN_TEST(test_GetDateSubcommand_unknown_subcommand);
   RUN_TEST(test_GetDateSubcommand_no_subcommand);
   RUN_TEST(test_GetDateSubcommand_with_spaces);
   RUN_TEST(test_GetDateSubcommand_null);
