@@ -9,9 +9,13 @@ using namespace App;
 SET_LOOP_TASK_STACK_SIZE(LOOP_TASK_STACK_SIZE);
 
 class Application {
+
   DEFINE_TAG("APP");
   friend class AutoGuard<Application>;
+  static bool sButtonTaskStarted;
+
   public:
+
     using Guard = AutoGuard<Application>;
 
     static Application &Instance() {
@@ -19,29 +23,64 @@ class Application {
       return tInstance;
     };
 
-    void Init() {
-      if (psramFound()) heap_caps_malloc_extmem_enable(256);
+    void Init() {     
+      #if !PRODUCTION
+        xLOG_B(BAUDRATE);
+        unsigned long tStart = millis();
+        while (!xLOG_S && (millis() - tStart) < 5e3) vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+        xLOG_PL();
+        xLOG_FLUSH();
+        {
+          Guard tLock;
+          UTL.PrintPartitionInfo();
+        }
+      #endif
+      if (psramFound()) heap_caps_malloc_extmem_enable(128);
       if (!mMutex) mMutex = xSemaphoreCreateRecursiveMutex();
       gBootCount++;
       if(!CFG.Init()) return;
+      const uint32_t tPersistedBoot = CFG.GetBootCount();
+      if (tPersistedBoot + 1 > gBootCount) gBootCount = tPersistedBoot + 1;
+      CFG.SaveBootCount(gBootCount);
       ReloadConfig();
       UTL.Init();
+      #if PRODUCTION
+        if (esp_reset_reason() == ESP_RST_DEEPSLEEP) {
+          const esp_sleep_wakeup_cause_t tWakeCause = esp_sleep_get_wakeup_cause();
+          const bool tAllowedWakeCause = (tWakeCause == ESP_SLEEP_WAKEUP_TIMER) || (tWakeCause == ESP_SLEEP_WAKEUP_EXT1) || (tWakeCause == ESP_SLEEP_WAKEUP_EXT0);
+          if (!tAllowedWakeCause) {
+            UTL.SleepAndWakeup();
+            return;
+          }
+        }
+      #endif
       UTL.SetCPUFrequency(ECPUFrequency::F160MHz);
       #if !PRODUCTION
-        if (!xLOG_S) xLOG_B(BAUDRATE);
-        while (!xLOG_S) vTaskDelay(DELAY_ULTRA_SHORT_MS / portTICK_PERIOD_MS);
         { 
           Guard tLock; 
           UTL.PrintDeviceInfo(); 
         }
       #endif
-      UTL.DisableBrownout();
       UTL.DisableBT();
       UTL.DisableTouchPad();
       if (!UTL.MeasureBattery()) {
         LowBatteryMode();
         return;
       }
+      #if !PRODUCTION
+        BTN.AddPin(mCfg.Device.SettingPin, "[settings button]");
+        BTN.AddPin(mCfg.Device.ResetPin, "[reset button]");
+        BTN.AddShortPressCallback(mCfg.Device.SettingPin, []() {
+          Instance().MaintenanceMode();
+        });
+        if (!sButtonTaskStarted) {
+          BTN.Start();
+          xTaskCreatePinnedToCore(&ButtonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, nullptr, 12, nullptr, 1);
+          sButtonTaskStarted = true;
+        }
+      #endif
+      FWU.CleanupUpdateDirOnBoot();
       if (UTL.WasWokenByButton()) MaintenanceMode();
       else PhotoFrameMode();
     }
@@ -49,11 +88,14 @@ class Application {
     void Run() {
       vTaskDelay(portMAX_DELAY);
     }
+
   private:
     Application() = default;
     SemaphoreHandle_t mMutex = nullptr;
     SAppConfig mCfg {};
-    
+    uint32_t mMaintenanceLastActivityMs = 0;
+    bool mExitMaintenanceMode = false;
+
     static void Lock() {
       if (Instance().mMutex) xSemaphoreTakeRecursive(Instance().mMutex, portMAX_DELAY);
     }
@@ -65,6 +107,7 @@ class Application {
     void ReloadConfig() {
       Guard tLock;
       mCfg = CFG.Get<SAppConfig>();
+      TON.SetEnabled(mCfg.Tone.Enable);
     }
 
     void ShowDefaultImage() {
@@ -74,8 +117,13 @@ class Application {
     }
 
     void SaveNextImage(const char *tNextImage) {
-      if (!CFG.SaveImageName(tNextImage)) xLOG("Failed to save → next image name");
-      else xLOG("Next image → %s", tNextImage);
+      if (!CFG.SaveImageName(tNextImage)) {
+        xLOG("Failed to save next image name");
+        LOG.Warn("Save next image FAILED -> %s", (tNextImage && tNextImage[0]) ? tNextImage : "<empty>");
+      } else {
+        xLOG("Next image → %s", tNextImage);
+        LOG.Info("NEXT_IMAGE -> %s", (tNextImage && tNextImage[0]) ? tNextImage : "<empty>");
+      }
     }
 
     bool TryDisplayImage(const char *tImage) {
@@ -83,33 +131,94 @@ class Application {
       char tFullPath[128] = "";
       snprintf(tFullPath, sizeof(tFullPath), "/%s/%s", mCfg.Display.ImagesDir.c_str(), tImage);
       if (!LFS.Exists(tFullPath)) return false;
-      xLOG("Trying image → %s", tImage);
-      return DSP.PrintJpg(0, 0, tImage);
+      xLOG("Trying image → %s", tFullPath);
+      return DSP.PrintJpg(0, 0, tFullPath);
+    }
+
+    void EnsureImageFileSeededOnBoot() {
+      bool tNeedSeed = mCfg.Display.CurrentFile.isEmpty();
+      char tCurrentPath[128] = "";
+      if (!tNeedSeed) {
+        snprintf(tCurrentPath, sizeof(tCurrentPath), "/%s/%s", mCfg.Display.ImagesDir.c_str(), mCfg.Display.CurrentFile.c_str());
+        tNeedSeed = !LFS.Exists(tCurrentPath);
+      }
+      LOG.Info("SEED_CHECK -> nvs='%s' path='%s' exists=%d need_seed=%d", mCfg.Display.CurrentFile.isEmpty() ? "<empty>" : mCfg.Display.CurrentFile.c_str(), tCurrentPath[0] ? tCurrentPath : "<n/a>", (tCurrentPath[0] ? (int)LFS.Exists(tCurrentPath) : -1), (int)tNeedSeed);
+      if (!tNeedSeed) return;
+      const char *tSeedImage = LFS.GetNextFile("");
+      if (!tSeedImage || tSeedImage[0] == '\0') {
+        xLOG("Boot seed skipped: no image found in active storage.");
+        LOG.Warn("SEED_SKIP -> no image found");
+        return;
+      }
+      if (!CFG.SaveImageName(tSeedImage)) {
+        xLOG("Boot seed failed: unable to save image_file.");
+        LOG.Warn("SEED_SAVE_FAIL -> %s", tSeedImage);
+        return;
+      }
+      mCfg.Display.CurrentFile = tSeedImage;
+      xLOG("Boot seed image_file → %s", tSeedImage);
+      LOG.Info("SEED_OK -> %s", tSeedImage);
+    }
+
+    bool WaitForWifiClient(uint32_t tTimeoutMs) {
+      const uint32_t tStartMs = millis();
+      while (!CON.HasActiveWifiClient()) {
+        if (UTL.HasElapsedMs(tStartMs, millis(), tTimeoutMs)) return false;
+        vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
+      }
+      return true;
+    }
+
+    void TouchMaintenanceActivity() {
+      mMaintenanceLastActivityMs = millis();
     }
 
     void PhotoFrameMode() {
       ReloadConfig();
-      UTL.PrintInfo("Device starts in → Photo Frame Mode", EUtilsInfoType::Single);
+      UTL.PrintInfo("Device starts in Photo Frame Mode", EUtilsInfoType::Single);
       LFS.Init(true);
+      LOG.Init();
+      LOG.Boot(UTL.ResolveBootReason(), "PHOTO_FRAME", mCfg.Device.Version.c_str(), gBootCount);
+      LOG.Info("BOOT_COUNT -> %u", (unsigned)gBootCount);
+      LOG.Battery(UTL.mBatteryPercentage, static_cast<uint16_t>(UTL.mBatteryVoltage * 1000.0f), "measured");
+      EnsureImageFileSeededOnBoot();
       DSP.Init();
-      const char *tImage = mCfg.Display.CurrentFile.isEmpty() ? LFS.GetNextFile("")  : mCfg.Display.CurrentFile.c_str();
-      if (TryDisplayImage(tImage)) SaveNextImage(LFS.GetNextFile(tImage));
-      else {
-        xLOG("Image failed → %s", tImage ? tImage : "(null)");
-        const char *tNextImage = LFS.GetNextFile(tImage ? tImage : "");
-        if (TryDisplayImage(tNextImage)) SaveNextImage(LFS.GetNextFile(tNextImage));
-        else {
+      char tImage[64] = "";
+      if (mCfg.Display.CurrentFile.isEmpty()) {
+        const char *tFirst = LFS.GetNextFile("");
+        if (tFirst) strlcpy(tImage, tFirst, sizeof(tImage));
+      } else strlcpy(tImage, mCfg.Display.CurrentFile.c_str(), sizeof(tImage));
+      LOG.Info("PICK_IMAGE -> '%s' (nvs='%s')", tImage[0] ? tImage : "<null>", mCfg.Display.CurrentFile.isEmpty() ? "<empty>" : mCfg.Display.CurrentFile.c_str());
+      if (TryDisplayImage(tImage)) {
+        const char *tNext = LFS.GetNextFile(tImage);
+        SaveNextImage(tNext ? tNext : "");
+      } else {
+        xLOG("Image failed → %s", tImage[0] ? tImage : "(null)");
+        LOG.Warn("DISPLAY_FAIL -> %s", tImage[0] ? tImage : "<null>");
+        const char *tFallback = tImage[0] ? LFS.GetNextFile(tImage) : nullptr;
+        char tFallbackBuf[64] = "";
+        if (tFallback) strlcpy(tFallbackBuf, tFallback, sizeof(tFallbackBuf));
+        if (tFallbackBuf[0] && TryDisplayImage(tFallbackBuf)) {
+          const char *tAfter = LFS.GetNextFile(tFallbackBuf);
+          SaveNextImage(tAfter ? tAfter : "");
+        } else {
           xLOG("Displaying default image.");
           ShowDefaultImage();
-          if (!CFG.SaveImageName("")) xLOG("Failed to clear → image name");
-          else xLOG("Image name cleared");
+          if (!CFG.SaveImageName("")) xLOG("Failed to clear image name.");
+          else xLOG("Image name cleared.");
         }
       }
       UTL.PrintMemoryInfo();
       DSP.OffAll();
+      LOG.Halt("SLEEP");
       LFS.End();
-      UTL.SleepAndWakeup();
-      __builtin_unreachable();
+      #if PRODUCTION
+        CON.SyncTimeIfDue();
+        UTL.SleepAndWakeup();
+        __builtin_unreachable();
+      #else
+        while (true) vTaskDelay(1e3 / portTICK_PERIOD_MS);
+      #endif
     }
 
     void MaintenanceMode() {
@@ -117,36 +226,44 @@ class Application {
       ReloadConfig();
       {
         char tText[45] = "";
-        snprintf(tText, sizeof(tText), "Device starts in → Maintenance [%s] Mode", (mCfg.Connection.ApModeEnable ? "AP" : "STA"));
+        snprintf(tText, sizeof(tText), "Device starts in Maintenance [%s] Mode", (mCfg.Connection.ApModeEnable ? "AP" : "STA"));
         UTL.PrintInfo(tText, EUtilsInfoType::Single);
       }
+      TON.Init(TONE_PIN);
+      TON.Play(kMaintenanceTone);
       LFS.Init(true);
+      LFS.WriteFile(CONFIG_FILE, CFG.PrepareAllConfigToINI(), true);
+      LOG.Init();
+      LOG.Boot(UTL.ResolveBootReason(), "MAINTENANCE", mCfg.Device.Version.c_str(), gBootCount);
+      LOG.Info("BOOT_COUNT -> %u", (unsigned)gBootCount);
+      LOG.Battery(UTL.mBatteryPercentage, static_cast<uint16_t>(UTL.mBatteryVoltage * 1000.0f), "measured");
+      TouchMaintenanceActivity();
       DSP.Init();
       CON.Init(true);
-      vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
-      BTN.AddPin(mCfg.Device.SettingPin, "[settings button]");
+      vTaskDelay(DELAY_ONE_SEC_MS / portTICK_PERIOD_MS);
+      xLOG_FLUSH();
+      if (!sButtonTaskStarted) {
+        BTN.AddPin(mCfg.Device.SettingPin, "[settings button]");
+        BTN.AddPin(mCfg.Device.ResetPin, "[reset button]");
+        BTN.Start();
+        xTaskCreatePinnedToCore(&ButtonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, nullptr, 12, nullptr, 1);
+        sButtonTaskStarted = true;
+      }
       BTN.AddLongPressCallback(mCfg.Device.SettingPin, []() {
         #if !PRODUCTION
-          xLOG("Device → rebooting...");
+          xLOG("Exiting Maintenance Mode, entering Photo Frame Mode...");
           vTaskDelay(DELAY_SHORT_MS / portTICK_PERIOD_MS);
         #endif
-        { 
-          Guard tLock;
-          DSP.OffAll();
-          LFS.End();
-          CON.Stop();
-          if (Instance().mCfg.Ftp.Enable) FTP.End();
-        }
-        esp_restart();
+        Instance().mExitMaintenanceMode = true;
       }, REBOOT_LONG_PRESS_MS);
-      BTN.AddPin(mCfg.Device.ResetPin, "[reset button]");
       BTN.AddLongPressCallback(mCfg.Device.ResetPin, []() {
         #if !PRODUCTION
-          xLOG("Device → factory reset...");
+          xLOG("Device factory reset...");
           vTaskDelay(DELAY_SHORT_MS / portTICK_PERIOD_MS);
         #endif
         { 
           Guard tLock;
+          LOG.Halt("FACTORY_RESET");
           CFG.FactoryReset();
           DSP.OffAll();
           LFS.End();
@@ -160,10 +277,8 @@ class Application {
         }
         esp_restart();
       }, FACTORY_RESET_LONG_PRESS_MS);
-      BTN.Start();
-      xTaskCreatePinnedToCore(&ButtonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, nullptr, 12, nullptr, 1);
       vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
-      char tTitleBuffer[64] = "";
+      char tTitleBuffer[64];
       DSP.SetFont(&OpenSans13B);
       snprintf(tTitleBuffer, sizeof(tTitleBuffer), "%s ¤ MAINTENANCE [%s MODE]", mCfg.Device.Name.c_str(), (mCfg.Connection.ApModeEnable ? "AP" : "STA"));
       DSP.WriteTextWithBoxCentered(tTitleBuffer);     
@@ -174,19 +289,75 @@ class Application {
         DSP.WriteText(0, 310, tTitleBuffer, EDisplayHAlignment::Center);
         DSP.ClearDisplay();
         DSP.Update();
-        while (!CON.HasActiveWifiClient()) vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
+        if (WaitForWifiClient(WIFI_CONNECT_TIMEOUT_MS)) TouchMaintenanceActivity();
       }
       DSP.ClearDisplay();
       DSP.Update();
-      while (!CON.HasActiveWifiClient()) vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
+      if (WaitForWifiClient(WIFI_CONNECT_TIMEOUT_MS)) TouchMaintenanceActivity();
       if (mCfg.Telnet.Enable) {
-        TLN.Init(true);
+        TLN.ActivityCallback([this]() { TouchMaintenanceActivity(); });
+        constexpr uint8_t kInitRetryCount = 3;
+        constexpr uint32_t kInitRetryDelayMs = 5000;
+        bool tTelnetReady = false;
+        for (uint8_t tAttempt = 1; tAttempt <= kInitRetryCount; tAttempt++) {
+          if (TLN.Init(true)) {
+            tTelnetReady = true;
+            break;
+          }
+          LOG.Warn("TLN_INIT_FAIL -> attempt %u/%u", (unsigned)tAttempt, (unsigned)kInitRetryCount);
+          if (tAttempt < kInitRetryCount) vTaskDelay(kInitRetryDelayMs / portTICK_PERIOD_MS);
+        }
+        if (!tTelnetReady) {
+          xLOG("Telnet init failed after %u attempts → restarting device", (unsigned)kInitRetryCount);
+          {
+            Guard tLock;
+            LOG.Halt("INIT_FAIL_RESTART");
+            DSP.OffAll();
+            LFS.End();
+            CON.Stop();
+            if (mCfg.Ftp.Enable) FTP.End();
+            TLN.End();
+          }
+          esp_restart();
+          __builtin_unreachable();
+        }
         vTaskDelay(DELAY_HALF_SEC_MS / portTICK_PERIOD_MS);
       }
       if (mCfg.Ftp.Enable) {
-        FTP.Init(true);
+        FTP.EventCallback([this](FtpOperation, uint32_t, uint32_t) {
+          TouchMaintenanceActivity();
+        });
+        FTP.TransferCallback([this](FtpTransferOperation, const char *, uint32_t) {
+          TouchMaintenanceActivity();
+        });
+        constexpr uint8_t kInitRetryCount = 3;
+        constexpr uint32_t kInitRetryDelayMs = 5000;
+        bool tFtpReady = false;
+        for (uint8_t tAttempt = 1; tAttempt <= kInitRetryCount; tAttempt++) {
+          if (FTP.Init(true)) {
+            tFtpReady = true;
+            break;
+          }
+          LOG.Warn("FTP_INIT_FAIL -> attempt %u/%u", (unsigned)tAttempt, (unsigned)kInitRetryCount);
+          if (tAttempt < kInitRetryCount) vTaskDelay(kInitRetryDelayMs / portTICK_PERIOD_MS);
+        }
+        if (!tFtpReady) {
+          xLOG("FTP init failed after %u attempts → restarting device", (unsigned)kInitRetryCount);
+          {
+            Guard tLock;
+            LOG.Halt("INIT_FAIL_RESTART");
+            DSP.OffAll();
+            LFS.End();
+            CON.Stop();
+            FTP.End();
+            if (mCfg.Telnet.Enable) TLN.End();
+          }
+          esp_restart();
+          __builtin_unreachable();
+        }
         FTP.Callback([this](const char *tFileName, uint32_t tFileSize) {
           Guard tLock;
+          TouchMaintenanceActivity();
           mCfg = CFG.Get<SAppConfig>();
           const char *tConfigFile = mCfg.Device.ConfigFile.c_str();
           tConfigFile = LFS.GetFileName(tConfigFile);
@@ -212,14 +383,45 @@ class Application {
       if (mCfg.Telnet.Enable) xTaskCreatePinnedToCore(&TelnetTask, "TelnetTask", TELNET_TASK_STACK_SIZE, nullptr, 10, nullptr, 1);
       if (mCfg.Ftp.Enable) xTaskCreatePinnedToCore(&FTPTask, "FTPTask", FTP_TASK_STACK_SIZE, nullptr, 11, nullptr, 1);
       UTL.PrintMemoryInfo();
-      while (true) vTaskDelay(DELAY_ONE_SEC_MS / portTICK_PERIOD_MS);
+      while (true) {
+        vTaskDelay(DELAY_ONE_SEC_MS / portTICK_PERIOD_MS);
+        if (mExitMaintenanceMode) {
+          #if !PRODUCTION
+            xLOG("Exiting Maintenance Mode...");
+          #endif
+          {
+            Guard tLock;
+            LOG.Halt("EXIT_MAINTENANCE");
+            DSP.OffAll();
+            LFS.End();
+            CON.Stop();
+            if (mCfg.Ftp.Enable) FTP.End();
+            if (mCfg.Telnet.Enable) TLN.End();
+          }
+          mExitMaintenanceMode = false;
+          PhotoFrameMode();
+          return;
+        }
+        if (!UTL.HasElapsedMs(mMaintenanceLastActivityMs, millis(), MAINTENANCE_INACTIVITY_TIMEOUT_MS)) continue;
+        {
+          Guard tLock;
+          LOG.Halt("INACTIVITY_TIMEOUT");
+          DSP.OffAll();
+          LFS.End();
+          CON.Stop();
+        }
+        esp_restart();
+        __builtin_unreachable();
+      }
     }
 
     void LowBatteryMode() {
-      UTL.PrintInfo("Device starts in → Low Battery Mode", EUtilsInfoType::Single);
+      UTL.PrintInfo("Device starts in Low Battery Mode", EUtilsInfoType::Single);
+      TON.Init(TONE_PIN);
+      TON.Play(kLowBatteryTone);
       LFS.Init(true);
       DSP.Init();
-      char tBuffer[32] = "";
+      char tBuffer[32];
       const int32_t tWidth = 160;
       const int32_t tHeight = 60;
       const int32_t tLayers = 2;
@@ -257,8 +459,12 @@ class Application {
       DSP.OffAll();
       UTL.PrintMemoryInfo();
       LFS.End();
-      UTL.SleepLowBattery();
-      __builtin_unreachable();
+      #if PRODUCTION
+        UTL.SleepLowBattery();
+        __builtin_unreachable();
+      #else
+        while (true) vTaskDelay(1e3 / portTICK_PERIOD_MS);
+      #endif     
     }
 
     static void ButtonTask(void *tParameter) {
@@ -273,7 +479,7 @@ class Application {
         if (CON.HasActiveWifiClient()) TLN.HandleEvents();
         vTaskDelay(DELAY_ULTRA_SHORT_MS / portTICK_PERIOD_MS);
       }
-    }   
+    }  
 
     static void FTPTask(void *tParameter) {
       while (true) {
@@ -281,7 +487,10 @@ class Application {
         vTaskDelay(DELAY_ULTRA_SHORT_MS / portTICK_PERIOD_MS);
       }
     }
+    
 };
+
+bool Application::sButtonTaskStarted = false;
 
 #define APP Application::Instance()
 
@@ -292,3 +501,4 @@ void setup() {
 void loop() {
   APP.Run();
 };
+

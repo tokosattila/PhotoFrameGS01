@@ -11,27 +11,27 @@ namespace App {
         return "fetch"; 
       }
       bool Execute(const char *tArguments, WiFiClient &tClient) override {
-        char tUrl[256] = "";
-        char tFilename[128] = "";
+        char tUrl[256];
+        char tFilename[128];
         if (!ParseArguments(tArguments, tUrl, sizeof(tUrl), tFilename, sizeof(tFilename), tClient)) return true;
         String tHost, tPath;
         uint16_t tPort;
         bool tIsHttps;
         if (!ParseUrl(tUrl, tHost, tPath, tPort, tIsHttps, tClient)) return true;
         if (!BuildFilePath(tFilename, sizeof(tFilename), tClient)) return true;
-        tClient.printf("\r\n  Downloading: %s:%d%s → %s\r\n", tHost.c_str(), tPort, tPath.c_str(), tFilename);
+        tClient.printf("\r\n  Downloading: %s:%d%s to %s\r\n", tHost.c_str(), tPort, tPath.c_str(), tFilename);
         int tBytesWritten = tIsHttps  ? DownloadHttps(tHost, tPath, tPort, tFilename, tClient) : DownloadHttp(tHost, tPath, tPort, tFilename, tClient);
         return HandleResult(tBytesWritten, tFilename, tClient);
       }     
       const char *Help() const override {
-        static char tHelp[96];
-        snprintf(tHelp, sizeof(tHelp), "fetch <url> [filename] - download image (max. %dkB, type: *.jpg, *.jpeg)", kMaxFileSizeKB);
+        static char tHelp[128];
+        snprintf(tHelp, sizeof(tHelp), "fetch <url> [filename]            - download image (max. %dkB, type: *.jpg, *.jpeg)", kMaxFileSizeKB);
         return tHelp;
       }
     private:
       static constexpr uint16_t kHttpPort = 80;
       static constexpr uint16_t kHttpsPort = 443;
-      static constexpr int kMaxFileSizeKB = 200;
+      static constexpr int kMaxFileSizeKB = 400;
       static constexpr int kMaxFileSizeBytes = kMaxFileSizeKB * 1024;
       static constexpr int kHttpsMinHeap = 50 * 1024;
       static constexpr int kTimeoutMs = 10 * 1000;
@@ -94,7 +94,7 @@ namespace App {
           tPort = kHttpPort;
           tIsHttps = false;
         } else {
-          PrintError(tClient, "URL must start with → http:// or https://");
+          PrintError(tClient, "URL must start with -> http:// or https://");
           return false;
         }
         const char *tPathStart = strchr(tHostStart, '/');
@@ -121,7 +121,7 @@ namespace App {
             tTestFile.close();
           }
         } else if (tFilename[0] != '/') {
-          char tTmp[128] = "";
+          char tTmp[128];
           snprintf(tTmp, sizeof(tTmp), "%s%s/%s", (tImgDir[0] == '/') ? "" : "/", tImgDir, tFilename);
           strncpy(tFilename, tTmp, tSize - 1);
           tFilename[tSize - 1] = '\0';
@@ -140,12 +140,12 @@ namespace App {
         tHttp.get(tPath);
         int tStatusCode = tHttp.responseStatusCode();
         if (tStatusCode != 200) {
-          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n" COLOR_WHITE, tStatusCode);
+          tClient.printf(COLOR_RED "\r\n  Error: HTTP %d\r\n\r\n" COLOR_WHITE, tStatusCode);
           return -1;
         }
         int tContentLength = tHttp.contentLength();
         if (tContentLength > kMaxFileSizeBytes) {
-          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n" COLOR_WHITE, tContentLength);
+          tClient.printf(COLOR_RED "\r\n  Error: File too large (%d bytes)\r\n\r\n" COLOR_WHITE, tContentLength);
           return -1;
         }
         File tFile = LFS.OpenFile(tFilename, "w");
@@ -246,7 +246,7 @@ namespace App {
           tClient.printf(COLOR_RED "\r\n  Error: File exceeded %dkB limit\r\n" COLOR_WHITE, kMaxFileSizeKB);
           return true;
         }
-        char tSizeBuf[16] = "";
+        char tSizeBuf[16];
         UTL.ByteToReadableSize(tBytes, tSizeBuf, sizeof(tSizeBuf));
         tClient.printf(COLOR_GREEN "\r\n  OK: %s (%s)\r\n\r\n" COLOR_WHITE, tFilename, tSizeBuf);
         return true;

@@ -27,23 +27,32 @@ namespace App {
       static void SetCPUFrequency(ECPUFrequency tFrequency = ECPUFrequency::F240MHz);
       static void DisableBT();
       static void DisableTouchPad();
-      static void DisableBrownout();
-      static void ByteToReadableSize(uint32_t tBytes, char *tBuffer, size_t tLength);
+      static void ByteToReadableSize(uint64_t tBytes, char *tBuffer, size_t tLength);
       const char *EpochToReadableFormat(unsigned long tEpoch, bool tAsDateTime, char *tBuffer, size_t tLength);
+      void PrintPartitionInfo();
       void PrintBootInfo();
       void PrintWakeupReason();
       void PrintDeviceInfo();
       void PrintInfo(const char *tText, EUtilsInfoType tType = EUtilsInfoType::Cell, uint8_t tWidth = 0);
       void PrintMemoryInfo();
+      void PrintDateTime();
       void SetPrintInfoWidth(uint8_t tWidth) { mPrintInfoWidth = tWidth; }
       uint8_t GetPrintInfoWidth() const { return mPrintInfoWidth; }
       const char *PrependSlash(const char *tPath, char *tOutBuffer, size_t tBufSize);
       void SleepLowBattery();
       void SleepAndWakeup();
+      uint64_t SecondsUntilHour(uint8_t tTargetHour);
       bool MeasureBattery();
       static bool WasWokenByButton();
+        static bool HasElapsedMs(uint32_t tStart, uint32_t tNow, uint32_t tDelayMs);
+        static const char *ResolveBootReason();
+        static bool WasWokenByPin(uint8_t tPin);
       static bool SecureStrcmp(const char *tA, const char *tB);
       static uint32_t SafeAtoul(const char *tStr, uint32_t tMinVal, uint32_t tMaxVal, uint32_t tDefaultVal);
+      static bool GlobMatch(const char *tPattern, const char *tText);
+      static bool SplitPathAndFile(const char *tSpec, char *tDir, size_t tDirSize, char *tFile, size_t tFileSize);
+      static void CollectMatchingFiles(const char *tDir, const char *tPattern, std::vector<String> &tFiles);
+      static void ResolveFileSpec(const char *tDir, const char *tSpec, std::vector<String> &tFiles);
     private:
       Utils_();
       Utils_(const Utils_&) = delete;

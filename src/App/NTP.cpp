@@ -16,7 +16,6 @@ namespace App {
       vSemaphoreDelete(mMutex);
       mMutex = nullptr;
     }
-    End();
   }
 
   void NTP_::Lock() {
@@ -29,21 +28,30 @@ namespace App {
 
   void NTP_::Init() {
     ReloadConfig();
-    if (!IsInternetAvailable()) {
-      xLOG("NTP initialization skipped → no internet connection (AP mode)");
-      return;
-    }
-    Begin();
+    ApplyTimeZone();
   }
 
   void NTP_::ReloadConfig() {
     Guard tLock;
-    mCfg = CFG.Get<SNTPConfig>();
+    mCfg = CFG.Get<SNTPConfig>(); 
+  }
+
+  bool NTP_::IsAvailable() {
+    wifi_mode_t tMode = WiFi.getMode();
+    if (tMode == WIFI_AP || tMode == WIFI_OFF) {
+      xLOG("NTP not available, WiFi in AP mode or OFF");
+      return false;
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+      xLOG("NTP not available, WiFi not connected");
+      return false;
+    }
+    return true;
   }
 
   bool NTP_::Begin() {
-    if (!IsInternetAvailable()) {
-      xLOG("NTP connection failed → no internet connection (AP mode)");
+    if (!IsAvailable()) {
+      mCurrentEpoch = 0;
       return false;
     }
     xLOG("Connecting to NTP → %s", mCfg.Server.c_str());
@@ -72,6 +80,7 @@ namespace App {
   }
 
   bool NTP_::UpdateTime() {
+    if (!IsAvailable()) return false;
     unsigned long tCurrentMillis = millis();
     if (tCurrentMillis - mLastUpdate >= mCfg.UpdateInterval || mLastUpdate == 0) {
       if (!mUDPSetup && !Begin()) return false;
@@ -92,11 +101,20 @@ namespace App {
         mUDP.read(mPacketBuffer, kNtpPacketSize);
         if (!IsPacketValid(mPacketBuffer)) tPacketSize = 0;
       }
-      if (++tTimeoutCounter > 200) return false;
+      if (++tTimeoutCounter > 200) {
+        xLOG("Timeout, no response");
+        mCurrentEpoch = 0;
+        return false;
+      }
     } while (tPacketSize == 0);
     mLastUpdate = millis() - 10UL * (tTimeoutCounter + 1);
     unsigned long tNtpTime = (mPacketBuffer[40] << 24) | (mPacketBuffer[41] << 16) | (mPacketBuffer[42] <<  8) | mPacketBuffer[43];
     mCurrentEpoch = tNtpTime - mSevenZYYears;
+    if (mCurrentEpoch < 1704067200UL) {
+      xLOG("Invalid epoch received → %lu", mCurrentEpoch);
+      mCurrentEpoch = 0;
+      return false;
+    }
     setenv("TZ", "GMT", 1); 
     tzset();
     struct timeval tTv = { 
@@ -104,6 +122,9 @@ namespace App {
       .tv_usec = 0 
     };
     if (settimeofday(&tTv, nullptr) != 0) return false;
+    ApplyTimeZone();
+    mCfg.LastSuccessfulSyncEpochUtc = mCurrentEpoch;
+    CFG.UpdateNTPLastSync(mCurrentEpoch);
     return true;
   }
 
@@ -123,12 +144,19 @@ namespace App {
 
   unsigned long NTP_::GetCurrentEpoch() {
     Guard tLock;
-    UpdateTime();
-    unsigned long tBase = mCurrentEpoch + ((millis() - mLastUpdate) / 1000UL);
+    unsigned long tBase = GetCurrentEpochUTC();
+    if (tBase == 0) return 0;
     unsigned long tOffset = mCfg.GMTOffset;
     bool tDst = IsDST(tBase + tOffset);
     if (tDst) tOffset += SECONDS_PER_HOUR;
     return tBase + tOffset;
+  }
+
+  unsigned long NTP_::GetCurrentEpochUTC() {
+    Guard tLock;
+    if (!UpdateTime()) return 0;
+    if (mCurrentEpoch == 0) return 0;
+    return mCurrentEpoch + ((millis() - mLastUpdate) / 1000UL);
   }
 
   unsigned long NTP_::EpochTime() {
@@ -196,13 +224,13 @@ namespace App {
   }
 
   String NTP_::Time(char tFormat) {
-    char tTimeBuffer[9] = "";
+    char tTimeBuffer[9];
     GetTime(tTimeBuffer, sizeof(tTimeBuffer), tFormat);
     return String(tTimeBuffer); 
   }
 
   String NTP_::Date(char tFormat) {
-    char tDateBuffer[11] = "";
+    char tDateBuffer[11];
     GetDate(tDateBuffer, sizeof(tDateBuffer), tFormat);
     return String(tDateBuffer); 
   }
@@ -244,22 +272,16 @@ namespace App {
   }
 
   bool NTP_::SyncSystemTime() {
-    if (!mUDPSetup) {
-      if (!Begin()) {
-        xLOG("System time failed synchronized!");
-        return false;
-      }
-    }
-    bool tSuccess = ForceTimeSync();
+    bool tSuccess = mUDPSetup ? ForceTimeSync() : Begin();
     if (tSuccess) {
-      xLOG("System time synchronized!");
-      char tDate[32] = "";
+      xLOG("System time synchronized from NTP");
+      char tDate[32];
       GetDate(tDate, sizeof(tDate));
       xLOG("Current date → %s", tDate);
-      char tTime[9] = "";
+      char tTime[9];
       GetTime(tTime, sizeof(tTime));
       xLOG("Current time → %s", tTime);
-    } else xLOG("System time failed synchronized!");
+    } else xLOG("System time failed synchronized from NTP");
     return tSuccess;
   }
 
@@ -288,6 +310,61 @@ namespace App {
     return tIsDst ? "EEST" : "EET";
   }
 
+  void NTP_::ApplyTimeZone() {
+    Guard tLock;
+    if (mCfg.TimeZoneLabel.length() == 0) {
+      long tTotalOffsetSec = mCfg.GMTOffset + mCfg.DaylightOffset;
+      if (tTotalOffsetSec == 0) {
+        xLOG("TimeZoneLabel empty, setting GMT");
+        setenv("TZ", "GMT", 1);
+      } else {
+        long tOffsetHours = tTotalOffsetSec / static_cast<long>(SECONDS_PER_HOUR);
+        long tOffsetMinutes = labs(tTotalOffsetSec % static_cast<long>(SECONDS_PER_HOUR)) / static_cast<long>(SECONDS_PER_MINUTE);
+        char tTZ[32] = "";
+        if (tOffsetMinutes == 0) {
+          snprintf(tTZ, sizeof(tTZ), "UTC%+ld", tOffsetHours);
+        } else {
+          snprintf(tTZ, sizeof(tTZ), "UTC%+ld:%02ld", tOffsetHours, tOffsetMinutes);
+        }
+        xLOG("TimeZoneLabel empty, fallback TZ=%s", tTZ);
+        setenv("TZ", tTZ, 1);
+      }
+    } else {
+      xLOG("Setting TZ to %s", mCfg.TimeZoneLabel.c_str());
+      setenv("TZ", mCfg.TimeZoneLabel.c_str(), 1);
+    }
+    tzset();
+  }
+
+  bool NTP_::SyncSystemTimeIfNeeded() {
+    Guard tLock;
+    if (!mCfg.LowPowerSyncEnable) {
+      xLOG("Low-power sync disabled, forcing sync");
+      return SyncSystemTime();
+    }
+    unsigned long tCurrentEpoch = static_cast<unsigned long>(time(nullptr));
+    if (tCurrentEpoch < 1704067200UL) {
+      xLOG("System epoch invalid, forcing sync");
+      return SyncSystemTime();
+    }
+    unsigned long tLastSync = mCfg.LastSuccessfulSyncEpochUtc;
+    if (tLastSync == 0) {
+      xLOG("No previous sync recorded, forcing sync");
+      return SyncSystemTime();
+    }
+    if (tCurrentEpoch < tLastSync) {
+      xLOG("Last sync is newer than current epoch, forcing sync");
+      return SyncSystemTime();
+    }
+    unsigned long tTimeSinceSync = tCurrentEpoch - tLastSync;
+    if (tTimeSinceSync >= mCfg.LowPowerSyncIntervalSec) {
+      xLOG("Interval elapsed (%lu >= %lu), syncing", tTimeSinceSync, mCfg.LowPowerSyncIntervalSec);
+      return SyncSystemTime();
+    }
+    xLOG("Skipped (synced %lu seconds ago)", tTimeSinceSync);
+    return true;
+  }
+
   void NTP_::PrintDateTimeInfo() {
     char tText[UTL.GetPrintInfoWidth() - 4] = "";
     xLOG_PL();
@@ -303,11 +380,6 @@ namespace App {
     snprintf(tText, sizeof(tText), "Time zone: GMT%+d (%s)", tGmt, tZone);
     UTL.PrintInfo(tText);
     UTL.PrintInfo("", EUtilsInfoType::Footer);
-  }
-
-  bool NTP_::IsInternetAvailable() const {
-    if (CON.IsApMode()) return false;
-    return CON.HasActiveWifiClient();
   }
 
 }

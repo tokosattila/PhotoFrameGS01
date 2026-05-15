@@ -2,7 +2,7 @@
 
 namespace App {
 
-  char FTP_::mFileName[128] = {0};
+  char FTP_::mFileName[128] = "";
 
   FTP_ &FTP_::Instance() {
     static FTP_ tInstance;

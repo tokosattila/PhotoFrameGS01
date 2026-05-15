@@ -36,7 +36,7 @@ namespace App {
     SetBgColor(EDisplayColor::White);
     SetColor(EDisplayColor::Black);
     memset(mFrameBuffer, static_cast<uint8_t>(mBgColor), mCfg.Width * mCfg.Height / 2);
-    xLOG("Display init successful!");
+    xLOG("Display available, init successful");
   }
 
   void Display_::ReloadConfig() {
@@ -139,23 +139,45 @@ namespace App {
   int IRAM_ATTR Display_::JpegDrawCallback(JPEGDRAW *tDraw) {
     Display_ *tSelf = &Instance();
     if (!tSelf->mFrameBuffer) return 0;
+    constexpr int kJpgBrightnessCorrection = 15;
+    constexpr int kJpgContrastCorrection = 0;
+    constexpr int kJpgGammaCorrection = 50;
+    constexpr int kJpgShadowLift = 12;
+    constexpr int kDitherStrength = 8;
+    static const uint8_t kLevelRemap[16] = { 0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 14, 15 };
+    static const int8_t kBayer4x4[4][4] = {
+      {-8,  0, -6,  2},
+      { 4, -4,  6, -2},
+      {-5,  3, -7,  1},
+      { 7, -1,  5, -3},
+    };
+    int tBrightness = tSelf->mCfg.JpgBrightness + kJpgBrightnessCorrection;
+    int tContrast = tSelf->mCfg.JpgContrast + kJpgContrastCorrection;
+    int tGamma = tSelf->mCfg.JpgGamma + kJpgGammaCorrection;
+    tBrightness = max(-100, min(100, tBrightness));
+    tContrast = max(0, min(200, tContrast));
+    tGamma = max(10, min(300, tGamma));
     for (uint16_t tY = 0; tY < tDraw->iHeight; ++tY) {
       for (uint16_t tX = 0; tX < tDraw->iWidth; ++tX) {
         uint16_t tPixel = tDraw->pPixels[tY * tDraw->iWidth + tX];
         uint8_t tGray8 = tPixel & 0xFF;
         int tVal = tGray8;
-        tVal = 128 + (tVal - 128) * tSelf->mCfg.JpgContrast / 100;
-        tVal += (tSelf->mCfg.JpgBrightness * 255) / 100;
-        if (tSelf->mCfg.JpgGamma != 100) {
-          float tF = tVal / 255.0f;
-          tF = powf(tF, 100.0f / tSelf->mCfg.JpgGamma);
-          tVal = (int)(tF * 255.0f + 0.5f);
-        }
+        tVal = 128 + (tVal - 128) * tContrast / 100;
+        tVal += (tBrightness * 255) / 100;
         tVal = max(0, min(255, tVal));
-        uint8_t tLevel4bit = tVal >> 4;
+        float tNorm = tVal / 255.0f;
+        float tLift = (1.0f - tNorm) * (kJpgShadowLift / 255.0f);
+        tNorm = max(0.0f, min(1.0f, tNorm + tLift));
+        if (tGamma != 100) tNorm = powf(tNorm, 100.0f / tGamma);
+        tVal = static_cast<int>(tNorm * 255.0f + 0.5f);
+        tVal = max(0, min(255, tVal));
+        int tDither = kBayer4x4[(tDraw->y + tY) & 0x03][(tDraw->x + tX) & 0x03];
+        int tQuant = max(0, min(255, tVal + tDither * kDitherStrength));
+        int tLevel4bit = min(15, (tQuant + 8) >> 4);
+        tLevel4bit = kLevelRemap[tLevel4bit];
         uint32_t tByteOffset = (tDraw->y + tY) * (tSelf->mCfg.Width / 2) + (tDraw->x + tX) / 2;
         uint8_t tShift = ((tDraw->x + tX) & 1) * 4;
-        tSelf->mFrameBuffer[tByteOffset] = (tSelf->mFrameBuffer[tByteOffset] & ~(0x0F << tShift)) | (tLevel4bit << tShift);
+        tSelf->mFrameBuffer[tByteOffset] = (tSelf->mFrameBuffer[tByteOffset] & ~(0x0F << tShift)) | (static_cast<uint8_t>(tLevel4bit) << tShift);
       }
     }
     return 1;
@@ -181,8 +203,8 @@ namespace App {
       STaskData *tData = static_cast<STaskData*>(tParameter);
       Display_ &tSelf = Instance();
       char tFullPath[128];
-      snprintf(tFullPath, sizeof(tFullPath), "/%s/%s", tSelf.mCfg.ImagesDir.c_str(), tData->FileName);
-      File tFile = LFS.OpenFile(tFullPath);
+      snprintf(tFullPath, sizeof(tFullPath), "%s", tData->FileName);
+      File tFile = LFS.OpenFile(tFullPath, FILE_READ);
       if (tFile) {
         size_t tSize = tFile.size();
         uint8_t *tBuffer = static_cast<uint8_t*>(heap_caps_malloc(tSize, MALLOC_CAP_SPIRAM));
@@ -207,7 +229,7 @@ namespace App {
       } else xLOG("Failed to open file for JPEG decoding → %s", tFullPath);
       xSemaphoreGive(tData->Done);
       vTaskDelete(nullptr);
-    }, "JpgDecode", 32 * 1024, tTaskData, 5, nullptr);
+    }, "JpgDecode", JPEG_DECODE_TASK_STACK_SIZE, tTaskData, 5, nullptr);
     constexpr TickType_t kJpegTimeoutMs = 30000;
     bool tSuccess = false;
     if (xSemaphoreTake(tDoneSemaphore, pdMS_TO_TICKS(kJpegTimeoutMs)) == pdTRUE) {
@@ -223,9 +245,13 @@ namespace App {
     
   void Display_::Update() {
     Guard tLock;
+    xLOG("Display update start");
     On();
+    uint32_t tStartMs = millis();
     epd_draw_grayscale_image(epd_full_screen(), mFrameBuffer);
     Off();
+    uint32_t tElapsedMs = millis() - tStartMs;
+    xLOG("Display update end (%lu.%03lus)", static_cast<unsigned long>(tElapsedMs / 1000), static_cast<unsigned long>(tElapsedMs % 1000));
   }
 
   Rect_t Display_::CopyToFrameBuffer(Rect_t tArea, const uint8_t *tData) {

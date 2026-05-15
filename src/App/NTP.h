@@ -6,24 +6,27 @@
 namespace App {
 
   class NTP_ {
-    DEFINE_TAG("TME");
+    DEFINE_TAG("NTP");
     friend class AutoGuard<NTP_>;
     public:
       using Guard = AutoGuard<NTP_>;
       static NTP_ &Instance();
       void Init();
-      void ReloadConfig();
+      void ReloadConfig(); 
       bool Begin();
       void End();
+      bool IsAvailable();
       unsigned long EpochTime();
       void GetTime(char *tOutputBuffer, uint8_t tBufferSize, char tFormat = ' ');
       void GetDate(char *tOutputBuffer, uint8_t tBufferSize, char tFormat = ' ');
       unsigned long GetCurrentEpoch();
+      unsigned long GetCurrentEpochUTC();
       String Time(char format = ' ');
       String Date(char format = ' ');
       bool SyncSystemTime();
+      bool SyncSystemTimeIfNeeded();
+      void ApplyTimeZone();
       void PrintDateTimeInfo();
-      bool IsInternetAvailable() const;
     private:
       NTP_();
       NTP_(const NTP_&) = delete;

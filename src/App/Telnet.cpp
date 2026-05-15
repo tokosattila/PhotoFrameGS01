@@ -2,6 +2,8 @@
 #include <App/Telnet/Commands/HelpCommand.h>
 #include <App/Telnet/Commands/ClearCommand.h>
 #include <App/Telnet/Commands/ListCommand.h>
+#include <App/Telnet/Commands/RenameCommand.h>
+#include <App/Telnet/Commands/DeleteCommand.h>
 #include <App/Telnet/Commands/CatCommand.h>
 #include <App/Telnet/Commands/DateCommand.h>
 #include <App/Telnet/Commands/TimeStampCommand.h>
@@ -11,8 +13,12 @@
 #include <App/Telnet/Commands/FileSystemInfoCommand.h>
 #include <App/Telnet/Commands/NetInfoCommand.h>
 #include <App/Telnet/Commands/BatInfoCommand.h>
+#include <App/Telnet/Commands/ImgInfoCommand.h>
 #include <App/Telnet/Commands/ConfigCommand.h>
 #include <App/Telnet/Commands/FetchCommand.h>
+#include <App/Telnet/Commands/FormatCommand.h>
+#include <App/Telnet/Commands/FirmwareUpdateCommand.h>
+#include <App/Telnet/Commands/BootPartitionCommand.h>
 #include <App/Telnet/Commands/CallbackCommand.h>
 #include <App/Telnet/Commands/ResetCommand.h>
 #include <App/Telnet/Commands/RebootCommand.h>
@@ -25,6 +31,8 @@ namespace App {
   static HelpCommand_ sHelpCmd;
   static ClearCommand_ sClearCmd;
   static ListCommand_ sListCmd;
+  static RenameCommand_ sRenameCmd;  
+  static DeleteCommand_ sDeleteCmd;
   static CatCommand_ sCatCmd;
   static DateCommand_ sDateCmd;
   static TimeStampCommand_ sTimeStampCmd;
@@ -34,14 +42,17 @@ namespace App {
   static FileSystemInfoCommand_ sFileSystemInfoCmd;
   static NetInfoCommand_ sNetInfoCmd;
   static BatInfoCommand_ sBatInfoCmd;
+  static ImgInfoCommand_ sImgInfoCmd;
   static ConfigCommand_ sConfigCmd;
   static FetchCommand_ sFetchCmd;
+  static FormatCommand_ sFormatCmd;
+  static FirmwareUpdateCommand_ sFirmwareUpdateCmd;
+  static BootPartitionCommand_ sBootPartitionCmd;
   static ResetCommand_ sResetCmd;
   static RebootCommand_ sRebootCmd;
   static LogoutCommand_ sLogoutCmd;
   static ExitCommand_ sExitCmd;
   static NotFoundCommand_ sNotFoundCmd;
-  
 
   constexpr uint16_t kBufferSize = sizeof(Telnet_::Instance().mInputBuffer);
 
@@ -60,6 +71,9 @@ namespace App {
     mAuthTimestamp = 0;
     mInputPos = 0;
     memset(mInputBuffer, 0, sizeof(mInputBuffer));
+    mFailedAttempts = 0;
+    mLockoutLevel = 0;
+    mLockoutUntil = 0;
     mCommands.reserve(20);
   }
 
@@ -89,6 +103,8 @@ namespace App {
       RegisterCommand(&sHelpCmd);
       RegisterCommand(&sClearCmd);
       RegisterCommand(&sListCmd);
+      RegisterCommand(&sRenameCmd);      
+      RegisterCommand(&sDeleteCmd);
       RegisterCommand(&sCatCmd);
       RegisterCommand(&sDateCmd);
       RegisterCommand(&sTimeStampCmd);
@@ -98,8 +114,12 @@ namespace App {
       RegisterCommand(&sFileSystemInfoCmd);
       RegisterCommand(&sNetInfoCmd);
       RegisterCommand(&sBatInfoCmd);
+      RegisterCommand(&sImgInfoCmd);
       RegisterCommand(&sConfigCmd);
       RegisterCommand(&sFetchCmd);
+      RegisterCommand(&sFormatCmd);
+      RegisterCommand(&sFirmwareUpdateCmd);
+      RegisterCommand(&sBootPartitionCmd);
       RegisterCommand(&sResetCmd);
       RegisterCommand(&sRebootCmd);
       RegisterCommand(&sLogoutCmd);
@@ -139,6 +159,15 @@ namespace App {
     if (tCommand != nullptr) mCommands.push_back(tCommand);
   }
 
+  void Telnet_::ActivityCallback(FActivityCallback tCallback) {
+    Guard tLock;
+    mActivityCallback = std::move(tCallback);
+  }
+
+  void Telnet_::NotifyActivity() {
+    if (mActivityCallback) mActivityCallback();
+  }
+
   void Telnet_::HandleEvents() {
     Guard tLock;
     if (!mEnabled) return;
@@ -155,18 +184,26 @@ namespace App {
         mInputPos = 0;
         memset(mInputBuffer, 0, sizeof(mInputBuffer));
         if (!IsAuthenticated() && mAuthRequired) {
+          if (IsLockedOut()) {
+            uint32_t tRemain = (mLockoutUntil - millis()) / 1000;
+            mClient.printf(COLOR_RED "\r\nLocked out. Try again in %lu seconds.\r\n" COLOR_WHITE, (unsigned long)tRemain);
+            mClient.stop();
+            return;
+          }
           mClient.printf("%s TELNET %s\r\n\r\n" COLOR_YELLOW "Authentication required!" COLOR_WHITE "\r\n\r\nUsername: ", mCfg.Device.Name.c_str(), mCfg.Device.Version.c_str());
           mWaitingPassword = false;
         } else {
           ClearScreen();
           mClient.print(F(COLOR_YELLOW "Type 'help' to list commands." COLOR_WHITE "\r\n\r\n$ "));
         }
+        NotifyActivity();
         while (mClient.available()) mClient.read();
       } else mServer.available().stop();
     }
     if (mClient && mClient.connected() && mClient.available()) {
       while (mClient.available()) {
         char tC = mClient.read();
+        NotifyActivity();
         if (tC == '\r' || tC == '\n') {
           if (tC == '\r' && mClient.peek() == '\n') mClient.read(); 
           if (mInputPos == 0) {
@@ -180,9 +217,20 @@ namespace App {
               if (UTL.SecureStrcmp(mInputBuffer, mCfg.Telnet.Username.c_str())) {
                 mClient.print(F("Password: "));
                 mWaitingPassword = true;
-              } else mClient.print(F("\r\n" COLOR_RED "Invalid username." COLOR_WHITE "\r\n\r\nUsername: "));
+              } else {
+                mFailedAttempts++;
+                if (mFailedAttempts >= kMaxAttemptsPerLevel) {
+                  ApplyLockout();
+                  uint32_t tRemain = (mLockoutUntil - millis()) / 1000;
+                  mClient.printf("\r\n" COLOR_RED "Invalid username.\r\n\r\nToo many failed attempts, locked for %lu seconds." COLOR_WHITE "\r\n", (unsigned long)tRemain);
+                  mClient.stop();
+                  return;
+                }
+                mClient.print(F("\r\n" COLOR_RED "Invalid username." COLOR_WHITE "\r\n\r\nUsername: "));
+              }
             } else {
               if (UTL.SecureStrcmp(mInputBuffer, mCfg.Telnet.Password.c_str())) {
+                ResetLockout();
                 SaveSessionTimestamp();
                 ClearScreen();
                 mInputPos = 0;
@@ -190,14 +238,42 @@ namespace App {
                 mClient.printf("%s TELNET\r\n\r\n" COLOR_YELLOW "Welcome! Type 'help' for commands." COLOR_WHITE "\r\n\r\n$ ", mCfg.Device.Name.c_str());
                 mWaitingPassword = false;
                 break;
-              } else mClient.print(F("\r\n" COLOR_RED "Invalid password." COLOR_WHITE "\r\n\r\nPassword: "));
+              } else {
+                mFailedAttempts++;
+                if (mFailedAttempts >= kMaxAttemptsPerLevel) {
+                  ApplyLockout();
+                  uint32_t tRemain = (mLockoutUntil - millis()) / 1000;
+                  mClient.printf("\r\n" COLOR_RED "Invalid password.\r\n\r\nToo many failed attempts, locked for %lu seconds." COLOR_WHITE "\r\n", (unsigned long)tRemain);
+                  mClient.stop();
+                  return;
+                }
+                mClient.print(F("\r\n" COLOR_RED "Invalid password." COLOR_WHITE "\r\n\r\nPassword: "));
+              }
             }
             mInputPos = 0;
             memset(mInputBuffer, 0, sizeof(mInputBuffer));
             WritePrompt();
             continue;
           } 
-          char tCmdName[128] = {0};
+          if (mWaitingConfirmation) {
+            bool tConfirmed = false;
+            if (!ParseYesNo(mInputBuffer, tConfirmed)) {
+              mClient.print(F("\r\n" COLOR_YELLOW "  Please answer 'y' or 'n' (or 'cancel')" COLOR_WHITE "\r\n"));
+              mInputPos = 0;
+              memset(mInputBuffer, 0, sizeof(mInputBuffer));
+              WritePrompt();
+              continue;
+            }
+            auto tCallback = mConfirmCallback;
+            mWaitingConfirmation = false;
+            mConfirmCallback = nullptr;
+            mInputPos = 0;
+            memset(mInputBuffer, 0, sizeof(mInputBuffer));
+            if (tCallback) tCallback(tConfirmed, mClient);
+            WritePrompt();
+            continue;
+          }
+          char tCmdName[128] = "";
           strncpy(tCmdName, mInputBuffer, sizeof(tCmdName) - 1);
           char *tSpace = strchr(tCmdName, ' ');
           if (tSpace) *tSpace = '\0';
@@ -205,6 +281,7 @@ namespace App {
           for (Command_ *tCmd : mCommands) {
             if (strcasecmp(tCmdName, tCmd->GetName()) == 0) {
               tCmd->Execute(mInputBuffer, mClient);
+              NotifyActivity();
               tHandled = true;
               break;
             }
@@ -213,6 +290,7 @@ namespace App {
             for (Command_ *tCmd : mCommands) {
               if (strcasecmp(tCmd->GetName(), "notfound") == 0) {
                 tCmd->Execute(mInputBuffer, mClient);
+                NotifyActivity();
                 break;
               }
             }
@@ -270,7 +348,50 @@ namespace App {
 
   const char *Telnet_::GetCurrentPrompt() {
     if (!IsAuthenticated() && mAuthRequired) return mWaitingPassword ? "Password: " : "Username: ";
+    if (mWaitingConfirmation) return mConfirmPrompt;
     return "$ ";
+  }
+
+  bool Telnet_::ParseYesNo(const char *tInput, bool &tValue) const {
+    if (!tInput) return false;
+    while (*tInput && isWhitespace((int)*tInput)) tInput++;
+    if (*tInput == '\0') return false;
+    if (*tInput == 'y' || *tInput == 'Y') {
+      tValue = true;
+      return true;
+    }
+    if (*tInput == 'n' || *tInput == 'N') {
+      tValue = false;
+      return true;
+    }
+    if (*tInput == 'c' || *tInput == 'C') {
+      tValue = false;
+      return true;
+    }
+    if (strcasecmp(tInput, "yes") == 0) {
+      tValue = true;
+      return true;
+    }
+    if (strcasecmp(tInput, "no") == 0) {
+      tValue = false;
+      return true;
+    }
+    if (strcasecmp(tInput, "cancel") == 0 || strcasecmp(tInput, "abort") == 0) {
+      tValue = false;
+      return true;
+    }
+    return false;
+  }
+
+  void Telnet_::RequestConfirmation(const char *tPrompt, FConfirmCallback tCallback) {
+    Guard tLock;
+    if (!tPrompt || !tPrompt[0]) tPrompt = "Confirm (y/n): ";
+    snprintf(mConfirmPrompt, sizeof(mConfirmPrompt), "  %s", tPrompt);
+    mConfirmCallback = std::move(tCallback);
+    mWaitingConfirmation = true;
+    mInputPos = 0;
+    memset(mInputBuffer, 0, sizeof(mInputBuffer));
+    WritePrompt();
   }
 
   void Telnet_::WritePrompt() {
@@ -293,6 +414,32 @@ namespace App {
     if (!CFG.SaveSession(mAuthTimestamp)) {
       xLOG("Warning: Failed to clear session timestamp");
     }
+  }
+
+  constexpr uint32_t Telnet_::kLockoutDurations[];
+
+  bool Telnet_::IsLockedOut() {
+    if (mLockoutUntil == 0) return false;
+    if (millis() >= mLockoutUntil) {
+      mLockoutUntil = 0;
+      mFailedAttempts = 0;
+      return false;
+    }
+    return true;
+  }
+
+  void Telnet_::ApplyLockout() {
+    uint32_t tDuration = kLockoutDurations[mLockoutLevel];
+    mLockoutUntil = millis() + tDuration;
+    xLOG("Brute-force lockout level %u → %lu sec", (unsigned)(mLockoutLevel + 1), (unsigned long)(tDuration / 1000));
+    if (mLockoutLevel < kMaxLockoutLevel) mLockoutLevel++;
+    mFailedAttempts = 0;
+  }
+
+  void Telnet_::ResetLockout() {
+    mFailedAttempts = 0;
+    mLockoutLevel = 0;
+    mLockoutUntil = 0;
   }
 
 }

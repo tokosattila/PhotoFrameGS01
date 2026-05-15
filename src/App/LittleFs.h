@@ -1,15 +1,9 @@
-#ifndef LITTLE_FS_H
-#define LITTLE_FS_H
+#ifndef LITTLEFS_H
+#define LITTLEFS_H
 
 #include <App/Global.h>
 
 namespace App {
-
-  struct SDirEntry {
-    char Name[128];
-    bool IsDir;
-    size_t Size;
-  };
 
   class LittleFS_ {
     DEFINE_TAG("LFS");
@@ -21,25 +15,29 @@ namespace App {
       void ReloadConfig();
       void Callback(FConnectionCallback tCallback);
       bool IsMounted();
+      const char *GetName() const { return "LittleFS"; }
       File OpenFile(const char *tPath, const char *tMode = FILE_READ, bool tCreate = false);
       const char *ReadFile(const char *tPath, const char *tMode = FILE_READ);
       bool WriteFile(const char *tPath, const char *tData, bool tVerbose = false);
       bool DeleteFile(const char *tPath);
+      bool RenameFile(const char *tFrom, const char *tTo);
       bool Exists(const char *tPath);
       bool CreateDir(const char *tPath, bool tVerbose = false);
       bool DeleteDir(const char *tPath);
+      bool Format();
       static const char *NormalizePath(const char *tPath);
       static const char *GetFileName(const char *tPath);
       const char *ListDir(const char *tPath = "/");
       const char *CatFile(const char *tPath);
       const char *GetNextFile();
       const char *GetNextFile(const char *tCurrentFilename, const char *tDir = IMAGES_DIR, const char *tExt = ".jpg");
+      static std::vector<const char*> GetFilesInDir(const char *tDir, const char *tExt);
       void BootstrapVault(bool tVerbose = false);
-      void PrintListDir();
+      void PrintListDir(size_t tMaxLines = 15);
       void End();
       size_t GetListPos() { return mListPos; };
-      uint32_t TotalBytes();
-      uint32_t UsedBytes();
+      uint64_t TotalBytes();
+      uint64_t UsedBytes();
     private:
       LittleFS_();
       LittleFS_(const LittleFS_&) = delete;
@@ -54,7 +52,7 @@ namespace App {
       static char mReadBuffer[4096];
       static bool mReadValid;
       static char mListBuffer[4096];
-      static char mFileBuffer[4096];
+      static char mFileBuffer[32768];
       static size_t mListPos;
       static std::vector<const char*> mFileList;
       static size_t mFilesCount;
@@ -62,7 +60,6 @@ namespace App {
       static char mFilesLastExt[16];
       static void Lock();
       static void Unlock();
-      static std::vector<const char*> GetFilesInDir(const char *tDir, const char *tExt);
       void AppendToBuffer(const char *tData, size_t tLength);
   };
 

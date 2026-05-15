@@ -11,7 +11,7 @@ namespace App {
         return "fsinfo";
       }
       bool Execute(const char *tArguments, WiFiClient& tClient) override {
-        char tText[48] = "";
+        char tText[64] = "";
         char tUsedBuffer[16] = "";
         char tTotalBuffer[16] = "";
         tClient.print(F(COLOR_WHITE "\r\n"));
@@ -23,7 +23,7 @@ namespace App {
         return true;
       }
       const char *Help() const override {
-        return "fsinfo                 - show filesystem usage info";
+        return "fsinfo                            - show filesystem usage info";
       }
     };
 

@@ -13,12 +13,12 @@ namespace App {
       using Guard = AutoGuard<Connection_>;
       static Connection_ &Instance();
       void Init(bool tVerbose = false);
+      bool SyncTimeIfDue();
       void ReloadConfig();
       void Start();
       void Stop();
       const char *GetIpAddress();
       bool HasActiveWifiClient() const;
-      bool IsApMode() const;
       void Callback(FConnectionCallback tCallback);
     private:
       Connection_();
@@ -36,6 +36,9 @@ namespace App {
       static void Unlock();
       static void WiFiEventTask(void *tParameter);
       void SetupAp();
+      bool TryConnectStaWithRetry();
+      bool TryConnectApSta();
+      void SwitchToFallbackApMode();
       void ConnectSta();
       void StartMdns();
       void PrintConnectionInfo();

@@ -5,39 +5,45 @@
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
-#include <esp_partition.h>
-#include <esp_wifi.h>
-#include <esp_bt.h>
-#include <esp_timer.h>
-#include <esp_ota_ops.h>
-#include <esp_chip_info.h>
-#include <esp_adc_cal.h>
-#include <esp_sleep.h>
-#include <esp_heap_caps.h>
-#include <driver/gpio.h>
 #include <driver/adc.h>
+#include <driver/gpio.h>
 #include <driver/touch_pad.h>
-#include <soc/soc.h>
-#include <soc/rtc_cntl_reg.h>
+#include <esp_adc_cal.h>
+#include <esp_bt.h>
+#include <esp_chip_info.h>
+#include <esp_heap_caps.h>
+#include <esp_ota_ops.h>
+#include <esp_partition.h>
+#include <esp_sleep.h>
+#include <esp_timer.h>
+#include <esp_wifi.h>
 #include <nvs_flash.h>
-#include <time.h>
+#include <soc/rtc_cntl_reg.h>
+#include <soc/soc.h>
+#include <ctype.h>
+#include <stdio.h>
+#include <strings.h>
 #include <sys/time.h>
+#include <time.h>
+#include <algorithm>
+#include <atomic>
 #include <functional>
 #include <vector>
-#include <algorithm>
+#include <mbedtls/sha256.h>
 #include <Arduino.h>
-#include <Preferences.h>
 #include <FS.h>
 #include <LittleFS.h>
-#include <WiFi.h>
+#include <Preferences.h>
+#include <Update.h>
 #include <ESPmDNS.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <WiFiUdp.h>
-#include <JPEGDEC.h>
+#include <ArduinoHttpClient.h>
 #include <epd_driver.h>
 #include <i2s_data_bus.h>
+#include <JPEGDEC.h>
 #include <SimpleFTPServer.h>
-#include <WiFiClientSecure.h>
-#include <ArduinoHttpClient.h>
 
 namespace App {
 
@@ -47,6 +53,7 @@ namespace App {
 
   #if PRODUCTION
     #define xLOG_S
+    #define xLOG_FLUSH()
     #define xLOG_B(...)
     #define xLOG_PR(...)
     #define xLOG_PL(...)
@@ -57,6 +64,7 @@ namespace App {
     #define xLOG_E()
   #else
     #define xLOG_S Serial
+    #define xLOG_FLUSH() Serial.flush()
     #define xLOG_B(...) Serial.begin(__VA_ARGS__)
     #define xLOG_PR(...) Serial.print(__VA_ARGS__)
     #define xLOG_PL(...) Serial.println(__VA_ARGS__)
@@ -73,6 +81,7 @@ namespace App {
   #endif
 
   using FDefaultCallback = std::function<void()>;
+
   using FConnectionCallback = FDefaultCallback;
 
   enum class ECPUFrequency : uint8_t {
@@ -84,14 +93,12 @@ namespace App {
   enum class EDevicePins : uint8_t {
     Btn1 = 39U,
     Btn2 = 34U,
-    Btn3 = 36U,
-    Btn4 = 0U,
-    Batpin = 36U
+    PiezoPin = 12U,
+    BatPin = 36U
   };
 
   enum class ETimerWakeUp : uint8_t {
-    Seconds = 1,
-    Minutes,
+    Minutes = 1,
     Hourly,
     HalfDay,
     Daily,
@@ -131,13 +138,27 @@ namespace App {
       uint16_t mValue;
   };
 
+  struct SDirEntry {
+    char Name[128] = "";
+    bool IsDir = false;
+    size_t Size = 0;
+  };  
+
+  struct SToneStep {
+    constexpr SToneStep(uint16_t tFrequencyHz = 0, uint16_t tDurationMs = 0, uint16_t tPauseMs = 0, uint8_t tDutyPct = 50) : FrequencyHz(tFrequencyHz), DurationMs(tDurationMs), PauseMs(tPauseMs), DutyPct(tDutyPct) {}
+    uint16_t FrequencyHz;
+    uint16_t DurationMs;
+    uint16_t PauseMs;
+    uint8_t DutyPct;
+  };
+
   struct SDeviceConfig {
     String Name;
     String Version;
     String ConfigFile;
     uint8_t BatteryPin = 0;
-    uint8_t SettingPin = 0;
     uint8_t ResetPin = 0;
+    uint8_t SettingPin = 0;
     SDeviceConfig() = default;
   };
 
@@ -148,8 +169,16 @@ namespace App {
     String ApIp;
     String ApGateway;
     String ApSubnet;
+    String FallbackApSsid;
+    String FallbackApPassword;
+    String FallbackApIp;
+    String FallbackApGateway;
+    String FallbackApSubnet;
     String StaSsid;
     String StaPassword;
+    bool StaAutoFallbackApEnable = true;
+    uint8_t StaConnectMaxRetry = 3;
+    uint32_t StaRetryDelayMs = 5 * 1000;
     bool StaIpEnable = false;
     String StaIp;
     String StaGateway;
@@ -164,26 +193,32 @@ namespace App {
   struct SNTPConfig {
     String Server;
     Port NtpPort {123};
-    unsigned long GMTOffset = 0;
+    long GMTOffset = 0;
+    long DaylightOffset = 0;
+    String TimeZoneLabel;
     unsigned long UpdateInterval = 0;
+    bool LowPowerSyncEnable = true;
+    unsigned long LowPowerSyncIntervalSec = 7UL * 24UL * 60UL * 60UL;
+    unsigned long LastSuccessfulSyncEpochUtc = 0;
     SNTPConfig() = default;
   };
 
   struct SDisplayConfig {
     int32_t Width = 0;
     int32_t Height = 0;
-    Percentage JpgBrightness {30};
-    Percentage JpgContrast {35};
-    Percentage JpgGamma {135};
+    Percentage JpgBrightness {0};
+    Percentage JpgContrast {100};
+    Percentage JpgGamma {100};
     String ImagesDir;
     String ImageExt;
     String CurrentFile;
+    unsigned long ImageUpdatedAt = 0;
     SDisplayConfig() = default;
   };
 
   struct STimerConfig {
     ETimerWakeUp WakeUp;
-    EDevicePins WakeUpPin;
+    uint8_t WakeUpHour = 6;
     STimerConfig() = default;
   };
 
@@ -204,53 +239,75 @@ namespace App {
     SFTPConfig() = default;
   };
 
+  struct SLogConfig {
+    bool LogManagerEnabled = true;
+    SLogConfig() = default;
+  };
+
+  struct SToneConfig {
+    bool Enable = true;
+    SToneConfig() = default;
+  };
+
   struct SAppConfig {
     SDeviceConfig Device {};
-    SNTPConfig NTP {};
+    SNTPConfig Ntp {};
     SConnectionConfig Connection {};
     SDisplayConfig Display {};
     STimerConfig Timer {};
     STelnetConfig Telnet {};
     SFTPConfig Ftp {};
+    SLogConfig Log {};
+    SToneConfig Tone {};
     SAppConfig() = default;
   };
 
   constexpr unsigned long BAUDRATE = 115200;
 
+  constexpr const char *LOGS_DIR = "logs";
+
   constexpr const char *IMAGES_DIR = "images";
-  constexpr const char *CONFIG_FILE = "/config.ini";
+  constexpr const char *CONFIG_FILE = "config.ini";
+
+  constexpr const char *FIRMWARE_DIR = "firmware";
+  constexpr const char *FIRMWARE_PATH = "firmware/firmware.bin";
+  constexpr const char *FIRMWARE_SHA_PATH = "firmware/firmware.sha256";
 
   constexpr uint16_t DISPLAY_WIDTH = 960;
   constexpr uint16_t DISPLAY_HEIGHT = 540;
   constexpr const char *IMAGE_EXT = ".jpg";
 
-  constexpr uint8_t BATTERY_PIN = static_cast<uint8_t>(EDevicePins::Batpin);
+  constexpr uint8_t BATTERY_PIN = static_cast<uint8_t>(EDevicePins::BatPin);
   constexpr uint8_t SETTING_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
-  constexpr uint8_t WAKE_UP_PIN = static_cast<uint8_t>(EDevicePins::Btn1);
   constexpr uint8_t RESET_PIN = static_cast<uint8_t>(EDevicePins::Btn2);
+  constexpr uint8_t TONE_PIN = static_cast<uint8_t>(EDevicePins::PiezoPin);
   
   constexpr uint32_t SECONDS_PER_MINUTE = 60;
   constexpr uint32_t SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
   constexpr uint32_t SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 
-  constexpr size_t LOOP_TASK_STACK_SIZE = 48 * 1024;
-  constexpr size_t BUTTON_TASK_STACK_SIZE = 8 * 1024;
-  constexpr size_t TELNET_TASK_STACK_SIZE = 8 * 1024;
-  constexpr size_t FTP_TASK_STACK_SIZE = 8 * 1024;
+  constexpr uint32_t KB = 1024;
+  constexpr size_t LOOP_TASK_STACK_SIZE = 48 * KB;
+  constexpr size_t JPEG_DECODE_TASK_STACK_SIZE = 32 * KB;  
+  constexpr size_t BUTTON_TASK_STACK_SIZE = 16 * KB;
+  constexpr size_t TELNET_TASK_STACK_SIZE = 8 * KB;
+  constexpr size_t FTP_TASK_STACK_SIZE = 8 * KB;
+ 
+  constexpr size_t ONE_SECOND_MS = 1000;
+  constexpr uint32_t REBOOT_LONG_PRESS_MS = 3 * ONE_SECOND_MS;
+  constexpr uint32_t FACTORY_RESET_LONG_PRESS_MS = 30 * ONE_SECOND_MS;
 
-  constexpr uint32_t REBOOT_LONG_PRESS_MS = 3 * 1000;
-  constexpr uint32_t FACTORY_RESET_LONG_PRESS_MS = 30 * 1000;
+  constexpr uint32_t DELAY_ULTRA_SHORT_MS = ONE_SECOND_MS / 100;
+  constexpr uint32_t DELAY_SHORT_MS = ONE_SECOND_MS / 10;
+  constexpr uint32_t DELAY_MEDIUM_MS = ONE_SECOND_MS / 5;
+  constexpr uint32_t DELAY_HALF_SEC_MS = ONE_SECOND_MS / 2;
+  constexpr uint32_t DELAY_ONE_SEC_MS = ONE_SECOND_MS;
 
-  constexpr uint32_t DELAY_ULTRA_SHORT_MS = 10;
-  constexpr uint32_t DELAY_SHORT_MS = 100;
-  constexpr uint32_t DELAY_MEDIUM_MS = 200;
-  constexpr uint32_t DELAY_HALF_SEC_MS = 500;
-  constexpr uint32_t DELAY_ONE_SEC_MS = 1000;
-
-  constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 30 * 1000;
+  constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 30 * ONE_SECOND_MS;
+  constexpr uint32_t MAINTENANCE_INACTIVITY_TIMEOUT_MS = 15 * 60 * ONE_SECOND_MS;
   constexpr uint32_t WIFI_RETRY_COUNT = 20;
-  constexpr uint32_t NVS_RETRY_DELAY_MS = 100;
-  constexpr uint32_t CONFIG_RETRY_DELAY_MS = 1000;
+  constexpr uint32_t NVS_RETRY_DELAY_MS = ONE_SECOND_MS / 10;
+  constexpr uint32_t CONFIG_RETRY_DELAY_MS = ONE_SECOND_MS;
 
   extern RTC_DATA_ATTR uint32_t gBootCount;
 
@@ -258,31 +315,37 @@ namespace App {
 
 #include <App/Utils.h>
 #include <App/Configuration.h>
-#include <App/LittleFs.h>
+#include <App/LittleFS.h>
+#include <App/LogManager.h>
 #include <App/NTP.h>
 #include <App/Connection.h>
 #include <App/Button.h>
+#include <App/Tone.h>
+#include <App/Tone/MaintenanceTone.h>
+#include <App/Tone/LowBatteryTone.h>
 #include <App/Display.h>
 #include <App/FTP.h>
+#include <App/Firmware.h>
 #include <App/Telnet/Command.h>
 #include <App/Telnet/Commands/CallbackCommand.h>
 #include <App/Telnet.h>
-
-#include <Fonts/OpenSans11.h>
-#include <Fonts/OpenSans11b.h>
-#include <Fonts/OpenSans13.h>
-#include <Fonts/OpenSans13b.h>
-
-#include <Images/DefaultImage.h>
+#include <App/Fonts/OpenSans11.h>
+#include <App/Fonts/OpenSans11b.h>
+#include <App/Fonts/OpenSans13.h>
+#include <App/Fonts/OpenSans13b.h>
+#include <App/Images/DefaultImage.h>
 
 #define CFG Configuration_::Instance()
 #define UTL Utils_::Instance()
 #define LFS LittleFS_::Instance()
-#define TME NTP_::Instance()
+#define NTP NTP_::Instance()
 #define CON Connection_::Instance()
 #define BTN Button_::Instance()
+#define TON Tone_::Instance()
 #define DSP Display_::Instance()
 #define FTP FTP_::Instance()
+#define FWU Firmware_::Instance()
 #define TLN Telnet_::Instance()
+#define LOG LogManager_::Instance()
 
 #endif

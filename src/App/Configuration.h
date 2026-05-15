@@ -21,6 +21,16 @@ namespace App {
     const char *IniKey;
     const char *IniSection;
     EConfigType Type;
+
+    constexpr SConfigKeyMappingEntry(
+      const char *tNvsKey,
+      const char *tIniKey,
+      const char *tIniSection,
+      EConfigType tType
+    ) : NvsKey(tNvsKey),
+        IniKey(tIniKey),
+        IniSection(tIniSection),
+        Type(tType) {}
   };
 
   class Configuration_ {
@@ -34,31 +44,27 @@ namespace App {
       bool CreateConfig();
       bool FactoryReset();
       const char *GetConfig(const char *tKey);
+      bool HasConfigKey(const char *tKey);
       bool SetConfig(const char *tKey, const char *tValue);
       bool SaveImageName(const char *tValue);
+      uint32_t GetImageUpdatedAt();
       bool SaveSession(uint32_t tValue);
       uint32_t GetSession();
+      uint32_t GetBootCount();
+      bool SaveBootCount(uint32_t tValue);
       const char *PrepareAllConfigToINI();
       SAppConfig LoadConfigFromINI(const char *tFileName = nullptr);
       bool SaveAllConfig(const SAppConfig &tConfig);
-    private:
-      Configuration_();
-      Configuration_(const Configuration_&) = delete;
-      Configuration_ &operator=(const Configuration_&) = delete;
-      ~Configuration_();
-      Preferences mConfig;
-      const char *mLabel = "cfg";
-      const char *mPartLabel = "nvs";
-      mutable SemaphoreHandle_t mMutex;
-      static void Lock();
-      static void Unlock();
+      void UpdateNTPLastSync(unsigned long tEpochUtc);
       static constexpr const char *kNvsDeviceConfig = "dvc.cfg";
       static constexpr const char *kNvsDeviceAppName = "dvc.appname";
       static constexpr const char *kNvsDeviceVersion = "dvc.version";
+      static constexpr const char *kNvsDeviceBootCount = "dvc.boot.cnt";
       static constexpr const char *kNvsDisplayBrightness = "dsp.jpg.brght";
       static constexpr const char *kNvsDisplayContrast = "dsp.jpg.cntrst";
       static constexpr const char *kNvsDisplayGamma = "dsp.jpg.gmm";
       static constexpr const char *kNvsDisplayFile = "dsp.file";
+      static constexpr const char *kNvsDisplayImageUpdatedAt = "dsp.file.upd";
       static constexpr const char *kNvsTimeServer = "tme.server";
       static constexpr const char *kNvsTimePort = "tme.port";
       static constexpr const char *kNvsTimeGmtOffset = "tme.gmt.offset";
@@ -79,7 +85,22 @@ namespace App {
       static constexpr const char *kNvsConStaDns2 = "con.sta.dns2";
       static constexpr const char *kNvsConMdnsEnable = "con.mdns.en";
       static constexpr const char *kNvsConMdnsName = "con.mdns.name";
+      static constexpr const char *kNvsConFallbackApSsid = "con.fbk.ap.ssid";
+      static constexpr const char *kNvsConFallbackApPass = "con.fbk.ap.pass";
+      static constexpr const char *kNvsConFallbackApIp = "con.fbk.ap.ip";
+      static constexpr const char *kNvsConFallbackApGw = "con.fbk.ap.gw";
+      static constexpr const char *kNvsConFallbackApSubnet = "con.fbk.snet";
+      static constexpr const char *kNvsConStaAutoFallback = "con.sta.autofbk";
+      static constexpr const char *kNvsConStaMaxRetry = "con.sta.mrty";
+      static constexpr const char *kNvsConStaRetryDelayMs = "con.sta.rty.dly";
+      static constexpr const char *kNvsTimeGmtOffsetLong = "tme.gmtoff";
+      static constexpr const char *kNvsTimeDaylightOffset = "tme.dayoff";
+      static constexpr const char *kNvsTimeZoneLabel = "tme.tz.label";
+      static constexpr const char *kNvsTimeLowPowerSyncEnable = "tme.lps.en";
+      static constexpr const char *kNvsTimeLowPowerSyncInterval = "tme.lps.intvl";
+      static constexpr const char *kNvsTimeLastSuccessfulSync = "tme.last.sync";
       static constexpr const char *kNvsTimerWake = "tmr.wake";
+      static constexpr const char *kNvsTimerWakeHour = "tmr.wake.hr";
       static constexpr const char *kNvsTelnetEnable = "tln.en";
       static constexpr const char *kNvsTelnetPort = "tln.port";
       static constexpr const char *kNvsTelnetUsername = "tln.username";
@@ -90,24 +111,41 @@ namespace App {
       static constexpr const char *kNvsFtpPort = "ftp.port";
       static constexpr const char *kNvsFtpUsername = "ftp.username";
       static constexpr const char *kNvsFtpPassword = "ftp.password";
-      static const std::vector<SConfigKeyMappingEntry> &GetKeyMapping();
+      static constexpr const char *kNvsDeviceLogEnable = "log.enable";
+      static constexpr const char *kNvsToneEnable = "ton.en";
+    private:
+      Configuration_();
+      Configuration_(const Configuration_&) = delete;
+      Configuration_ &operator=(const Configuration_&) = delete;
+      ~Configuration_();
+      Preferences mConfig;
+      const char *mLabel = "cfg";
+      const char *mPartLabel = "nvs";
+      mutable SemaphoreHandle_t mMutex;
+      static void Lock();
+      static void Unlock();
       static SAppConfig GetDefaultConfig();
+      static bool MatchIniSection(const SConfigKeyMappingEntry &tEntry, const char *tFileSection);
+      static const std::vector<SConfigKeyMappingEntry> &GetKeyMapping();
+      static bool ParseLine(char *tLine, char *tSection, char *tKey, char *tValue);
+      static void TrimValue(char *tValue);
+      static bool ParseBoolStrict(const char *tValue, bool &tOut);
+      static bool ParseUInt32Strict(const char *tValue, uint32_t tMin, uint32_t tMax, uint32_t &tOut);
+      static bool ParseInt32Strict(const char *tValue, int32_t &tOut);
       static void ApplyINIValue(SAppConfig &tConfig, const char *tSection, const SConfigKeyMappingEntry &tEntry, const char *tValue);
       static bool ReadINIFile(const char *tFileName, SAppConfig &tConfig);
       bool Begin(bool tReadOnly);
       void End();
       void AccessConfig(bool tReadOnly, std::function<void()> tAction);
-      static bool ParseLine(char *tLine, char *tSection, char *tKey, char *tValue);
-      static void TrimValue(char *tValue);
   };
 
   template<> SAppConfig Configuration_::Get<SAppConfig>();
   template<> SDeviceConfig Configuration_::Get<SDeviceConfig>();
+  template<> SLogConfig Configuration_::Get<SLogConfig>();
   template<> SConnectionConfig Configuration_::Get<SConnectionConfig>();
   template<> SNTPConfig Configuration_::Get<SNTPConfig>();
   template<> SDisplayConfig Configuration_::Get<SDisplayConfig>();
   template<> STimerConfig Configuration_::Get<STimerConfig>();
-
 };
 
 #endif

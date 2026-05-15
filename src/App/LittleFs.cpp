@@ -1,16 +1,16 @@
-#include <App/LittleFs.h>
+#include <App/LittleFS.h>
 
 namespace App {
 
-  char LittleFS_::mReadBuffer[4096] = {0};
+  char LittleFS_::mReadBuffer[4096] = "";
   bool LittleFS_::mReadValid = false;
-  char LittleFS_::mListBuffer[4096] = {0};
-  char LittleFS_::mFileBuffer[4096] = {0};
+  char LittleFS_::mListBuffer[4096] = "";
+  char LittleFS_::mFileBuffer[32768] = "";
   size_t LittleFS_::mListPos = 0;
   std::vector<const char*> App::LittleFS_::mFileList;
   size_t LittleFS_::mFilesCount = 0;
-  char LittleFS_::mFilesLastDir[128] = {0};
-  char LittleFS_::mFilesLastExt[16] = {0};
+  char LittleFS_::mFilesLastDir[128] = "";
+  char LittleFS_::mFilesLastExt[16] = "";
 
   LittleFS_ &LittleFS_::Instance() {
     static LittleFS_ tInstance;
@@ -45,11 +45,11 @@ namespace App {
     bool tOk = LittleFS.begin(false, mMountLabel, mMaxFiles, mPartLabel);
     if (tOk) {
       if (tVerbose) {
-        xLOG("FileSystem init succesful!");
+        xLOG("LittleFS init successful");
         BootstrapVault(tVerbose);
       }
     } else {
-      if (tVerbose) xLOG("FileSystem init failed!");
+      if (tVerbose) xLOG("LittleFS init failed");
     }
     if (mCallback) mCallback();
     return tOk;
@@ -82,62 +82,46 @@ namespace App {
     Guard tLock;
     mListPos = 0;
     mListBuffer[0] = '\0';
-    char tFullPathBuffer[128] = "";
+    char tFullPathBuffer[128];
     strncpy(tFullPathBuffer, NormalizePath(tPath), sizeof(tFullPathBuffer) - 1);
     tFullPathBuffer[sizeof(tFullPathBuffer) - 1] = '\0';
     File tRoot = LittleFS.open(tFullPathBuffer);
     if (!tRoot || !tRoot.isDirectory()) {
       return "Invalid root\r\n";
     }
-    auto IsFile = [&](const char *tName) -> bool {
-      if (!tName || tName[0] == '\0') return false;
-      const char *tDot = strrchr(tName, '.');
-      if (tDot && strlen(tDot + 1) == 3) return true;
-      return false;
-    };
-    File tEntry = tRoot.openNextFile();
-    while (tEntry) {
-      const char *tShort = GetFileName(tEntry.name());
-      if (tEntry.isDirectory() && !IsFile(tShort)) {
-        AppendToBuffer(tShort, strlen(tShort));
-        AppendToBuffer("/\r\n", 3);
-        char tSubBuffer[128] = "";
-        snprintf(tSubBuffer, sizeof(tSubBuffer), "/%s", tEntry.name());
-        File tSub = LittleFS.open(tSubBuffer);
-        File tFile = tSub.openNextFile();
-        while (tFile) {
-          const char *tName = GetFileName(tFile.name());
-          if (IsFile(tName)) {
-            char tBuffer[16] = "";
-            UTL.ByteToReadableSize(tFile.size(), tBuffer, sizeof(tBuffer));
-            AppendToBuffer("  ", 2);
-            AppendToBuffer(tName, strlen(tName));
-            AppendToBuffer(" [", 2);
-            AppendToBuffer(tBuffer, strlen(tBuffer));
-            AppendToBuffer("]\r\n", 3);
-          }
-          tFile = tSub.openNextFile();
+    std::function<void(File &, uint8_t)> tAppendLogsTree;
+    tAppendLogsTree = [&](File &tDir, uint8_t tDepth) {
+      char tIndent[64] = "";
+      size_t tIndentLen = (size_t)(tDepth + 1U) * 2U;
+      if (tIndentLen > sizeof(tIndent) - 1U) tIndentLen = sizeof(tIndent) - 1U;
+      memset(tIndent, ' ', tIndentLen);
+      tIndent[tIndentLen] = '\0';
+
+      File tEntry = tDir.openNextFile();
+      while (tEntry) {
+        const char *tName = GetFileName(tEntry.name());
+        if (tEntry.isDirectory()) {
+          AppendToBuffer(tIndent, strlen(tIndent));
+          AppendToBuffer(tName, strlen(tName));
+          AppendToBuffer("/\r\n", 3);
+          File tSubDir = tEntry;
+          tAppendLogsTree(tSubDir, (uint8_t)(tDepth + 1));
+          tSubDir.close();
+        } else {
+          char tBuffer[16] = "";
+          UTL.ByteToReadableSize((uint64_t)tEntry.size(), tBuffer, sizeof(tBuffer));
+          AppendToBuffer(tIndent, strlen(tIndent));
+          AppendToBuffer(tName, strlen(tName));
+          AppendToBuffer(" [", 2);
+          AppendToBuffer(tBuffer, strlen(tBuffer));
+          AppendToBuffer("]\r\n", 3);
         }
-        tSub.close();
+        File tNext = tDir.openNextFile();
+        tEntry.close();
+        tEntry = tNext;
       }
-      tEntry = tRoot.openNextFile();
-    }
-    tRoot.close();
-    File tFileRoot = LittleFS.open(tFullPathBuffer);
-    File tFileEntry = tFileRoot.openNextFile();
-    while (tFileEntry) {
-      const char *tShort = GetFileName(tFileEntry.name());
-      if (IsFile(tShort)) {
-        char tBuffer[16] = "";
-        UTL.ByteToReadableSize(tFileEntry.size(), tBuffer, sizeof(tBuffer));
-        AppendToBuffer(tShort, strlen(tShort));
-        AppendToBuffer(" [", 2);
-        AppendToBuffer(tBuffer, strlen(tBuffer));
-        AppendToBuffer("]\r\n", 3);
-      }
-      tFileEntry = tFileRoot.openNextFile();
-    }
-    tFileRoot.close();
+    };
+    tAppendLogsTree(tRoot, 0);
     return mListBuffer;
   }
 
@@ -159,7 +143,7 @@ namespace App {
     Guard tLock;
     mReadValid = false;
     mReadBuffer[0] = '\0';
-    char tNormalizedPath[128] = "";
+    char tNormalizedPath[128];
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     File tFile = LittleFS.open(tNormalizedPath, tMode);
@@ -179,16 +163,15 @@ namespace App {
       mReadBuffer[tRead] = '\0';
       mReadValid = true;
       return mReadBuffer;
-    } else {
-      mReadBuffer[0] = '\0';
-      mReadValid = false;
-      return "";
     }
+    mReadBuffer[0] = '\0';
+    mReadValid = false;
+    return "";
   }
 
   bool LittleFS_::WriteFile(const char *tPath, const char *tData, bool tVerbose) {
     Guard tLock;
-    char tNormalizedPath[128] = "";
+    char tNormalizedPath[128];
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     const char *tName = GetFileName(tNormalizedPath);
@@ -212,9 +195,26 @@ namespace App {
 
   bool LittleFS_::DeleteFile(const char *tPath) {
     Guard tLock;
-    bool tOk = LittleFS.remove(tPath);
+    char tNormalizedPath[128];
+    strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
+    tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
+    bool tOk = LittleFS.remove(tNormalizedPath);
     if (tOk) xLOG("File deleted → %s", tPath);
     else xLOG("Error deleted file → %s", tPath);
+    return tOk;
+  }
+
+  bool LittleFS_::RenameFile(const char *tFrom, const char *tTo) {
+    Guard tLock;
+    char tFromPath[128] = "";
+    char tToPath[128] = "";
+    strncpy(tFromPath, NormalizePath(tFrom), sizeof(tFromPath) - 1);
+    tFromPath[sizeof(tFromPath) - 1] = '\0';
+    strncpy(tToPath, NormalizePath(tTo), sizeof(tToPath) - 1);
+    tToPath[sizeof(tToPath) - 1] = '\0';
+    bool tOk = LittleFS.rename(tFromPath, tToPath);
+    if (tOk) xLOG("File renamed → %s -> %s", tFromPath, tToPath);
+    else xLOG("Error renaming file → %s -> %s", tFromPath, tToPath);
     return tOk;
   }
 
@@ -232,28 +232,33 @@ namespace App {
 
   bool LittleFS_::DeleteDir(const char *tPath) {
     Guard tLock;
-    bool tOk = LittleFS.rmdir(tPath);
+    char tNormalizedPath[128];
+    strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
+    tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
+    bool tOk = LittleFS.rmdir(tNormalizedPath);
     if (tOk) xLOG("Directory deleted → %s", tPath);
     else xLOG("Error deleted directory → %s", tPath);
     return tOk;
   }
 
+  bool LittleFS_::Format() {
+    Guard tLock;
+    return LittleFS.format();
+  }
+
   bool LittleFS_::Exists(const char *tPath) {
     Guard tLock;
-    bool tOk = LittleFS.exists(tPath);
-    return tOk;
+    return LittleFS.exists(tPath);
   }
 
-  uint32_t LittleFS_::TotalBytes() {
+  uint64_t LittleFS_::TotalBytes() {
     Guard tLock;
-    uint32_t tValue = LittleFS.totalBytes();
-    return tValue;
+    return LittleFS.totalBytes();
   }
 
-  uint32_t LittleFS_::UsedBytes() {
+  uint64_t LittleFS_::UsedBytes() {
     Guard tLock;
-    uint32_t tValue = LittleFS.usedBytes();
-    return tValue;
+    return LittleFS.usedBytes();
   }
 
   const char *LittleFS_::GetFileName(const char *tPath) {
@@ -265,28 +270,98 @@ namespace App {
     char tIDirName[128] = "";
     UTL.PrependSlash(mCfg.Display.ImagesDir.c_str(), tIDirName, sizeof(tIDirName));
     CreateDir(tIDirName, tVerbose);
-    char tCFileName[128] = "";
-    UTL.PrependSlash(mCfg.Device.ConfigFile.c_str(), tCFileName, sizeof(tCFileName));
-    const char *tCFileContent = CFG.PrepareAllConfigToINI();
-    WriteFile(tCFileName, tCFileContent, tVerbose);
     if (tVerbose) PrintListDir();
   }
 
-  void LittleFS_::PrintListDir() {
+  void LittleFS_::PrintListDir(size_t tMaxLines) {
+    (void)tMaxLines;
     xLOG_PL();
-    UTL.PrintInfo("FILE STRUCTURE", EUtilsInfoType::Header);
+    UTL.PrintInfo("LITTLEFS FILE STRUCTURE", EUtilsInfoType::Header);
     UTL.PrintInfo("", EUtilsInfoType::Line);
-    const char *tData = ListDir("/");
-    char *tLine = (char*)tData;
-    char *tEnd = (char*)tData + mListPos;
-    while (tLine < tEnd) {
-      char *tNext = tLine;
-      while (tNext < tEnd && *tNext != '\r' && *tNext != '\n') ++tNext;
-      char tTemp = *tNext; *tNext = '\0';
-      UTL.PrintInfo(tLine, EUtilsInfoType::Cell);
-      if (tTemp) *tNext = tTemp;
-      tLine = tNext + (tTemp ? (tTemp == '\r' && tNext[1] == '\n' ? 2 : 1) : 0);
+    static constexpr uint8_t kMaxSubDirFiles = 10;
+    File tRoot = LittleFS.open("/");
+    if (!tRoot || !tRoot.isDirectory()) {
+      UTL.PrintInfo("Invalid root", EUtilsInfoType::Cell);
+      UTL.PrintInfo("", EUtilsInfoType::Footer);
+      return;
     }
+    std::function<void(File &, uint8_t)> tPrintLogsTree;
+    tPrintLogsTree = [&](File &tDir, uint8_t tDepth) {
+      char tIndent[64] = "";
+      size_t tIndentLen = (size_t)(tDepth + 1U) * 2U;
+      if (tIndentLen > sizeof(tIndent) - 1U) tIndentLen = sizeof(tIndent) - 1U;
+      memset(tIndent, ' ', tIndentLen);
+      tIndent[tIndentLen] = '\0';
+      File tEntry = tDir.openNextFile();
+      while (tEntry) {
+        const char *tName = GetFileName(tEntry.name());
+        if (tEntry.isDirectory()) {
+          char tLine[160] = "";
+          snprintf(tLine, sizeof(tLine), "%s%s/", tIndent, tName);
+          UTL.PrintInfo(tLine, EUtilsInfoType::Cell);
+          File tSubDir = tEntry;
+          tPrintLogsTree(tSubDir, (uint8_t)(tDepth + 1));
+          tSubDir.close();
+        } else {
+          char tSize[16] = "";
+          UTL.ByteToReadableSize((uint64_t)tEntry.size(), tSize, sizeof(tSize));
+          char tLine[192] = "";
+          snprintf(tLine, sizeof(tLine), "%s%s [%s]", tIndent, tName, tSize);
+          UTL.PrintInfo(tLine, EUtilsInfoType::Cell);
+        }
+        File tNext = tDir.openNextFile();
+        tEntry.close();
+        tEntry = tNext;
+      }
+    };
+    File tEntry = tRoot.openNextFile();
+    while (tEntry) {
+      const char *tName = GetFileName(tEntry.name());
+      if (tEntry.isDirectory()) {
+        char tDirLine[160] = "";
+        snprintf(tDirLine, sizeof(tDirLine), "%s/", tName);
+        UTL.PrintInfo(tDirLine, EUtilsInfoType::Cell);
+        if (strcmp(tName, "logs") == 0) {
+          File tLogsDir = tEntry;
+          tPrintLogsTree(tLogsDir, 0);
+          tLogsDir.close();
+        } else {
+          File tSubDir = tEntry;
+          uint8_t tFileCount = 0;
+          bool tTruncated = false;
+          File tSubEntry = tSubDir.openNextFile();
+          while (tSubEntry) {
+            if (!tSubEntry.isDirectory()) {
+              if (tFileCount < kMaxSubDirFiles) {
+                char tSize[16] = "";
+                UTL.ByteToReadableSize((uint64_t)tSubEntry.size(), tSize, sizeof(tSize));
+                char tFileLine[192] = "";
+                snprintf(tFileLine, sizeof(tFileLine), "  %s [%s]", GetFileName(tSubEntry.name()), tSize);
+                UTL.PrintInfo(tFileLine, EUtilsInfoType::Cell);
+                ++tFileCount;
+              } else {
+                tTruncated = true;
+              }
+            }
+            File tNextSub = tSubDir.openNextFile();
+            tSubEntry.close();
+            tSubEntry = tNextSub;
+          }
+          if (tTruncated) UTL.PrintInfo("  [...]", EUtilsInfoType::Cell);
+          tSubDir.close();
+        }
+      } else {
+        char tSize[16] = "";
+        UTL.ByteToReadableSize((uint64_t)tEntry.size(), tSize, sizeof(tSize));
+        char tFileLine[192] = "";
+        snprintf(tFileLine, sizeof(tFileLine), "%s [%s]", tName, tSize);
+        UTL.PrintInfo(tFileLine, EUtilsInfoType::Cell);
+      }
+      File tNext = tRoot.openNextFile();
+      tEntry.close();
+      tEntry = tNext;
+    }
+    tRoot.close();
     UTL.PrintInfo("", EUtilsInfoType::Footer);
   }
 
@@ -322,7 +397,7 @@ namespace App {
       xLOG("Cannot open directory → %s", tDir);
       return {};
     }
-    char tSearchExt[16] = "";
+    char tSearchExt[16];
     if (tExt[0] == '.') strncpy(tSearchExt, tExt, sizeof(tSearchExt)-1);
     else snprintf(tSearchExt, sizeof(tSearchExt), ".%s", tExt);
     tSearchExt[sizeof(tSearchExt)-1] = '\0';
@@ -345,8 +420,7 @@ namespace App {
 
   const char *LittleFS_::GetNextFile() {
     Guard tLock;
-    const char *tResult = GetNextFile(mCfg.Display.CurrentFile.c_str(), mCfg.Display.ImagesDir.c_str(), mCfg.Display.ImageExt.c_str());
-    return tResult;
+    return GetNextFile(mCfg.Display.CurrentFile.c_str(), mCfg.Display.ImagesDir.c_str(), mCfg.Display.ImageExt.c_str());
   }
 
   const char *LittleFS_::GetNextFile(const char *tCurrentFilename, const char *tDir, const char *tExt) {
@@ -361,7 +435,7 @@ namespace App {
     if (tCurrentFilename && tCurrentFilename[0]) {
       const char *tName = strrchr(tCurrentFilename, '/');
       tName = tName ? tName + 1 : tCurrentFilename;
-      char tSearch[128] = "";
+      char tSearch[128];
       snprintf(tSearch, sizeof(tSearch), "%s", tName);
       for (size_t i = 0; i < mFilesCount; ++i) {
         const char *tEntryName = strrchr(mFileList[i], '/');
@@ -372,8 +446,7 @@ namespace App {
         }
       }
     }
-    const char *tResult = mFileList[tNextIndex];
-    return tResult;
+    return mFileList[tNextIndex];
   }
 
   const char *LittleFS_::CatFile(const char *tPath) {
@@ -381,32 +454,32 @@ namespace App {
     mListPos = 0;
     mFileBuffer[0] = '\0';
     if (!tPath || tPath[0] == '\0') {
-      strncpy(mFileBuffer, "Error: No path specified\r\n", sizeof(mFileBuffer) - 1);
+      strncpy(mFileBuffer, "  Error: No path specified\r\n", sizeof(mFileBuffer) - 1);
       return mFileBuffer;
     }
-    char tNormalizedPath[128] = "";
+    char tNormalizedPath[128];
     strncpy(tNormalizedPath, NormalizePath(tPath), sizeof(tNormalizedPath) - 1);
     tNormalizedPath[sizeof(tNormalizedPath) - 1] = '\0';
     if (!LittleFS.exists(tNormalizedPath)) {
-      snprintf(mFileBuffer, sizeof(mFileBuffer), "Error: File not found: %s\r\n", tNormalizedPath);
+      snprintf(mFileBuffer, sizeof(mFileBuffer), "  Error: File not found: %s\r\n", tNormalizedPath);
       return mFileBuffer;
     }
     File tFile = LittleFS.open(tNormalizedPath, FILE_READ);
     if (!tFile) {
-      snprintf(mFileBuffer, sizeof(mFileBuffer), "Error: Cannot open file: %s\r\n", tNormalizedPath);
+      snprintf(mFileBuffer, sizeof(mFileBuffer), "  Error: Cannot open file: %s\r\n", tNormalizedPath);
       return mFileBuffer;
     }
     if (tFile.isDirectory()) {
       tFile.close();
-      snprintf(mFileBuffer, sizeof(mFileBuffer), "Error: Is a directory: %s\r\n", tNormalizedPath);
+      snprintf(mFileBuffer, sizeof(mFileBuffer), "  Error: Is a directory: %s\r\n", tNormalizedPath);
       return mFileBuffer;
     }
     size_t tSize = tFile.size();
     if (tSize > sizeof(mFileBuffer)) {
       tFile.close();
-      char tSizeBuffer[16] = "";
+      char tSizeBuffer[16];
       UTL.ByteToReadableSize((uint32_t)tSize, tSizeBuffer, sizeof(tSizeBuffer));
-      snprintf(mFileBuffer, sizeof(mFileBuffer), "Error: File too large (%s).\r\n", tSizeBuffer);
+      snprintf(mFileBuffer, sizeof(mFileBuffer), "  Error: File too large (%s).\r\n", tSizeBuffer);
       return mFileBuffer;
     }
     while (tFile.available() && mListPos < sizeof(mFileBuffer) - 3) {

@@ -7,15 +7,39 @@ namespace App {
 
   class ListCommand_ : public Command_ {
     public:
-      const char *GetName() const override { 
-        return "list"; 
+      const char *GetName() const override {
+        return "list";
       }
       bool Execute(const char *tArguments, WiFiClient &tClient) override {
-        const char *tData = LFS.ListDir("/");
-        size_t tLen = LFS.GetListPos();
-        char *tLine = (char*)tData;
-        char *tEnd = (char*)tData + tLen;
-        tClient.print(F(COLOR_YELLOW "\r\n  File structure:\r\n\r\n" COLOR_WHITE));
+        const char *tArg = ParseSubcommand(tArguments);
+        if (tArg[0] == '\0') return PrintListing(LFS.ListDir("/"), LFS.GetListPos(), LFS.GetName(), tClient);
+        if (strcasecmp(tArg, "logs") == 0) {
+          return PrintLogsListing(tClient);
+        }
+        tClient.printf(COLOR_RED "\r\n  Unknown target: %s\r\n" COLOR_WHITE, tArg);
+        tClient.print(F(COLOR_YELLOW "  Usage: list [logs]\r\n\r\n" COLOR_WHITE));
+        return true;
+      }
+      const char *Help() const override {
+        return "list                              " COLOR_YELLOW "- list LittleFS\r\n  " COLOR_WHITE
+               "list logs                         " COLOR_YELLOW "- list logs directory tree" COLOR_WHITE;
+      }
+    private:
+      const char *ParseSubcommand(const char *tInput) {
+        if (!tInput) return "";
+        const char *tPtr = tInput;
+        while (*tPtr != '\0' && *tPtr != ' ' && *tPtr != '\t') ++tPtr;
+        while (*tPtr == ' ' || *tPtr == '\t') ++tPtr;
+        return tPtr;
+      }
+      bool PrintListing(const char *tData, size_t tLen, const char *tLabel, WiFiClient &tClient) {
+        tClient.printf(COLOR_GREEN "\r\n  File structure [%s]:\r\n\r\n" COLOR_WHITE, tLabel);
+        if (!tData || tLen == 0 || tData[0] == '\0') {
+          tClient.print(F(COLOR_YELLOW "  File structure is empty.\r\n\r\n" COLOR_WHITE));
+          return true;
+        }
+        char *tLine = (char *)tData;
+        char *tEnd = (char *)tData + tLen;
         while (tLine < tEnd) {
           char *tNext = tLine;
           while (tNext < tEnd && *tNext != '\r' && *tNext != '\n') ++tNext;
@@ -27,8 +51,41 @@ namespace App {
         tClient.print(F("\r\n" COLOR_WHITE));
         return true;
       }
-      const char *Help() const override {
-        return "list                   - list directories and files";
+      bool PrintLogsListing(WiFiClient &tClient) {
+        File tLogsDir;
+        tLogsDir = LFS.OpenFile("/logs", FILE_READ);
+        if (!tLogsDir) {
+          tClient.print(F(COLOR_YELLOW "  No logs directory found in LittleFS.\r\n\r\n" COLOR_WHITE));
+          return true;
+        }
+        tClient.printf(COLOR_GREEN "\r\n  File structure [logs/ directory]:\r\n\r\n" COLOR_WHITE);
+        PrintLogsRecursive(tLogsDir, "", 0, tClient);
+        tLogsDir.close();
+        tClient.print(F("\r\n" COLOR_WHITE));
+        return true;
+      }
+      void PrintLogsRecursive(File tDir, const char *tIndent, uint8_t tDepth, WiFiClient &tClient) {
+        char tIndentBuffer[128] = "";
+        strncpy(tIndentBuffer, tIndent, sizeof(tIndentBuffer) - 1);
+        File tFile = tDir.openNextFile();
+        while (tFile) {
+          const char *tName = tFile.name();
+          if (tFile.isDirectory()) {
+            tClient.printf("  %s%s/\r\n", tIndentBuffer, tName);
+            File tSubDir = tFile;
+            char tNewIndent[128] = "";
+            snprintf(tNewIndent, sizeof(tNewIndent), "%s  ", tIndentBuffer);
+            PrintLogsRecursive(tSubDir, tNewIndent, tDepth + 1, tClient);
+            tSubDir.close();
+          } else {
+            uint32_t tSize = tFile.size();
+            char tSizeBuf[32];
+            Utils_::ByteToReadableSize(tSize, tSizeBuf, sizeof(tSizeBuf));
+            tClient.printf("  %s%s [%s]\r\n", tIndentBuffer, tName, tSizeBuf);
+          }
+          tFile.close();
+          tFile = tDir.openNextFile();
+        }
       }
   };
 

@@ -75,7 +75,7 @@ namespace App {
         while (tLinePtr < tEndPtr) {
           const char *tLineEnd = tLinePtr;
           while (tLineEnd < tEndPtr && *tLineEnd != '\r' && *tLineEnd != '\n') ++tLineEnd;
-          char tFmt[8] = "";
+          char tFmt[8];
           tClient.write(COLOR_YELLOW);
           snprintf(tFmt, sizeof(tFmt), "%%%uu  ", tWidth);
           tClient.printf(tFmt, tLineNum++);
@@ -97,7 +97,7 @@ namespace App {
         return true;
       }
       const char *Help() const override {
-        return "cat <filename>         - show file content";
+        return "cat <filename>                    - show file content";
       }
   };
 

@@ -13,7 +13,7 @@ namespace App {
       bool Execute(const char *tArguments, WiFiClient& tClient) override {
         tClient.print(F(COLOR_WHITE "\r\n"));
         if (!UTL.MeasureBattery()) {
-          tClient.println("  Battery: LOW or not detected!");
+          tClient.println(F(COLOR_RED "  Battery: LOW or not detected!\r\n" COLOR_WHITE));
           return false;
         }
         char tText[32];
@@ -23,7 +23,7 @@ namespace App {
         return true;
       }
       const char *Help() const override {
-        return "batinfo                - show battery voltage and percentage";
+        return "batinfo                           - show battery voltage and percentage";
       }
   };
 
